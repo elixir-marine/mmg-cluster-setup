@@ -38,6 +38,7 @@ bastionKeyName: my_bastion_key
 
 # Can add other admins' IPs here. The IP of the machine that executes the tool will be added automatically.
 ipAdmins:
+  - 129.242.158.216
 
 ipCheck: http://checkip.amazonaws.com
 
@@ -51,7 +52,7 @@ clusterKeyFileName: id_rsa_csc_cluster
 
 bastionFloatingIpId:
 securityGroupId:
-serverGroupId:
+serverGroupId: 924f9799-6c90-4a2b-a063-57d16846f964
 
 xternFiles:
   ansibleScript: pouta-ansible-cluster

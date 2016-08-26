@@ -36,11 +36,14 @@ public class MainClass implements Closeable
 
     private static Configuration config = null;
 
+    private String userName;
+    private String password;
+
     private String tempFolder;
     private File tempFolderFile;
 
-    private final NovaApi novaApi;
-    private final Set<String> regions;
+    private NovaApi novaApi;
+    private Set<String> regions;
     private SecurityGroupApi securityGroupApi;
     private ServerApi serverApi;
     private FlavorApi flavorApi;
@@ -61,6 +64,9 @@ public class MainClass implements Closeable
     {
 
         System.out.print("\nStarting execution... \n\n");
+
+        this.userName = userName;
+        this.password = password;
 
         cscAuthOnBastionCommands = "export OS_AUTH_URL=" + config.getOsAuthName() + ";" +
                 "export OS_TENANT_NAME=" + config.getProjectName() + ";" +
@@ -90,21 +96,24 @@ public class MainClass implements Closeable
         overrides.setProperty(Constants.PROPERTY_LOGGER_WIRE_LOG_SENSITIVE_INFO, "true");
         overrides.setProperty(KeystoneProperties.TENANT_NAME, config.getProjectName());
 
-        novaApi = ContextBuilder.newBuilder(new NovaApiMetadata())
-                .endpoint("https://pouta.csc.fi:5001/v2.0")
-                .credentials(userName, password)
-                .modules(modules)
-                .overrides(overrides)
-                .buildApi(NovaApi.class);
+        if(this.userName != null && this.password != null)
+        {
+            novaApi = ContextBuilder.newBuilder(new NovaApiMetadata())
+                    .endpoint("https://pouta.csc.fi:5001/v2.0")
+                    .credentials(userName, password)
+                    .modules(modules)
+                    .overrides(overrides)
+                    .buildApi(NovaApi.class);
 
-        regions = novaApi.getConfiguredRegions();
-        securityGroupApi = novaApi.getSecurityGroupApi(config.getRegionName()).get();
-        serverApi = novaApi.getServerApi(config.getRegionName());
-        flavorApi = novaApi.getFlavorApi(config.getRegionName());
-        imageApi = novaApi.getImageApi(config.getRegionName());
-        keyPairApi = novaApi.getKeyPairApi(config.getRegionName()).get();
-        floatingIPApi = novaApi.getFloatingIPApi(config.getRegionName()).get();
-        serverGroupApi = novaApi.getServerGroupApi(config.getRegionName()).get();
+            regions = novaApi.getConfiguredRegions();
+            securityGroupApi = novaApi.getSecurityGroupApi(config.getRegionName()).get();
+            serverApi = novaApi.getServerApi(config.getRegionName());
+            flavorApi = novaApi.getFlavorApi(config.getRegionName());
+            imageApi = novaApi.getImageApi(config.getRegionName());
+            keyPairApi = novaApi.getKeyPairApi(config.getRegionName()).get();
+            floatingIPApi = novaApi.getFloatingIPApi(config.getRegionName()).get();
+            serverGroupApi = novaApi.getServerGroupApi(config.getRegionName()).get();
+        }
 
         String path = MainClass.class.getProtectionDomain().getCodeSource().getLocation().getPath();
         String decodedPath = "";
@@ -175,7 +184,6 @@ public class MainClass implements Closeable
         {
             e.printStackTrace();
         }
-        // todo: MUST IMPLEMENT ARG STUFF
         if(args.length == 0)
         {
             System.out.println(helpLaunch);
@@ -183,7 +191,6 @@ public class MainClass implements Closeable
         }
         else
         {
-            List argsList = new ArrayList<String>(Arrays.asList(args));
             String usr = null, pswd = null;
             for(String arg : args)
             {
@@ -195,12 +202,6 @@ public class MainClass implements Closeable
                 {
                     pswd = arg.trim().replace("password=", "");
                 }
-            }
-            if(usr == null || pswd == null || usr.isEmpty() || pswd.isEmpty())
-            {
-//                System.out.println("Check the correctness of OpenStack username and password arguments!");
-                System.out.println(helpLaunch);
-                exit(1);
             }
             for(String arg : args)
             {
@@ -218,6 +219,12 @@ public class MainClass implements Closeable
                     mainClass.masterRoutine();
                     return;
                 }
+            }
+            if(usr == null || pswd == null || usr.isEmpty() || pswd.isEmpty())
+            {
+//                System.out.println("Check the correctness of OpenStack username and password arguments!");
+                System.out.println(helpLaunch);
+                exit(1);
             }
             System.out.println(help);
             InputStream inStream = new FileInputStream(FileDescriptor.in);
@@ -308,7 +315,7 @@ public class MainClass implements Closeable
         System.out.print("\n");
         Procedures.openAdminAccess(config, securityGroupApi);
         System.out.print("\n");
-        Procedures.generaleAmbariLink(config.getClusterName(),
+        Procedures.generateAmbariLink(config.getClusterName(),
                 Utils.getServerPublicIp(getMasterReference(config.getClusterName()), config.getNetworkName()));
         System.out.print("\n");
         this.runBastionRoutine();
@@ -395,7 +402,7 @@ public class MainClass implements Closeable
                 return s;
             }
         }
-        System.out.println("Bastion host was not found. Can't continue.");
+        System.out.println("Master host was not found. Can't continue.");
         exit(1);
         return null;
     }
@@ -406,7 +413,8 @@ public class MainClass implements Closeable
     {
         System.out.println("Launching this JAR on Bastion...");
         String commands =
-                "java -jar $(pwd)/Metapipe-cPouta.jar _bastion-routine;";
+                "java -jar $(pwd)/Metapipe-cPouta.jar " +
+                        "username=" + this.userName + " password=" + this.password + " _bastion-routine;";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         System.out.println("This JAR has finished all procedures on Bastion.");
     }
@@ -435,7 +443,8 @@ public class MainClass implements Closeable
 
     private void bastionRoutine_runMasterRoutine()
     {
-        String commands = "java -jar $(pwd)/Metapipe-cPouta.jar _master-routine;";
+        String commands =
+                "java -jar $(pwd)/Metapipe-cPouta.jar _master-routine;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(getMasterReference(config.getClusterName()),config.getNetworkName()),
                 commands);

@@ -584,15 +584,16 @@ class Procedures
         String commands = authCommands +
                 "source ~/.virtualenvs/ansible2/bin/activate;" +
                 "export ANSIBLE_HOST_KEY_CHECKING=False;" +
-                "ansible-playbook -v -e @cluster_vars.yaml ~/" + config.getXternFiles().get("ansibleScript") +
+                "ansible-playbook -v -e @cluster_vars.yaml ~/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleScript")) +
                 "/playbooks/hortonworks/provision.yml;" +
                 "echo 'Cluster provision finished.';" +
                 "sleep 3;" +
-                "ansible-playbook -v -i hortonworks-inventory ~/" + config.getXternFiles().get("ansibleScript") +
+                "ansible-playbook -v -i hortonworks-inventory ~/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleScript")) +
                 "/playbooks/hortonworks/configure.yml;" +
                 "echo 'Provisioned cluster configuration finished.';" +
                 "sleep 1;" +
                 "deactivate;";
+        System.out.println(commands);
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         System.out.println("Cluster provision routine on Bastion is finished.");
     }
@@ -622,7 +623,7 @@ class Procedures
         }
     }
 
-    static void generaleAmbariLink(String clusterName, String masterPublicIp)
+    static void generateAmbariLink(String clusterName, String masterPublicIp)
     {
         File f = new File("./ambari_" + clusterName + "_firefox.sh");
         String filePath = f.getAbsolutePath();
