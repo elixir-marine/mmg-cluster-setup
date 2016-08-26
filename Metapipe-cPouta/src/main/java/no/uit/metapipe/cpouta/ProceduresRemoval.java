@@ -33,7 +33,7 @@ class ProceduresRemoval
                 " -e num_nodes="  + config.getNumNodes() +
                 " -e remove_master=1 -e remove_master_volumes=1 -e remove_nodes=1 -e remove_node_volumes=1" +
                 " -e remove_security_groups=1";
-        Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
+//        Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         System.out.println("Cluster instances are terminated.");
         if(config.getServerGroupId() != null && !config.getServerGroupId().isEmpty())
         {
@@ -65,7 +65,7 @@ class ProceduresRemoval
             config.setAndUpdateServerGroupId("");
             System.out.println("Cluster server group is removed.");
         }
-        (new File("/ambari_" + config.getClusterName() + ".sh")).delete();
+        (new File("ambari_" + config.getClusterName() + "_firefox.sh")).delete();
         System.out.println("Cluster is removed.");
     }
 
