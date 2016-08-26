@@ -146,7 +146,7 @@ public class MainClass implements Closeable
                 "password=CSC_Password \n";
         final String help =
                 "This tool can create Spark cluster environment on CSC, or remove the existing one.\n" +
-                "The current version supports only one cluster per time, and has not scale-up/down." +
+                "The current version supports only one cluster per time, and doesn't support scale-up/down." +
                 "Required parameters are taken from the file 'config.yml' in the same folder with this Jar.\n" +
                 "Be sure that config.yml is configured correctly.\n";
         final String helpOps =
