@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>no.uit.metapipe</groupId>
+    <artifactId>Metapipe-cPouta</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <name>Metapipe-cPouta</name>
+
+    <!--<build>-->
+        <!--<plugins>-->
+            <!--<plugin>-->
+            <!--<groupId>org.apache.maven.plugins</groupId>-->
+            <!--<artifactId>maven-resources-plugin</artifactId>-->
+            <!--<version>2.6</version>-->
+            <!--<executions>-->
+                <!--<execution>-->
+                    <!--<id>copy-resources</id>-->
+                    <!--<phase>process-resources</phase>-->
+                    <!--<goals>-->
+                        <!--<goal>copy-resources</goal>-->
+                    <!--</goals>-->
+                    <!--<configuration>-->
+                        <!--<outputDirectory>${basedir}/out</outputDirectory>-->
+                        <!--<resources>-->
+                            <!--<resource>-->
+                                <!--<directory>${basedir}</directory>-->
+                                <!--<includes>-->
+                                    <!--<include>config.yml</include>-->
+                                <!--</includes>-->
+                            <!--</resource>-->
+                        <!--</resources>-->
+                    <!--</configuration>-->
+                <!--</execution>-->
+            <!--</executions>-->
+            <!--</plugin>-->
+        <!--</plugins>-->
+    <!--</build>-->
+
+    <properties>
+        <project.build.sourceencoding>UTF-8</project.build.sourceencoding>
+        <jclouds.version>1.9.2</jclouds.version>
+    </properties>
+
+    <!--<repositories>
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file:///${project.basedir}/lib</url>
+        </repository>
+    </repositories>-->
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.jclouds.api</groupId>
+            <artifactId>openstack-keystone</artifactId>
+            <version>${jclouds.version}</version>
+        </dependency>
+        <!--<dependency>
+            <groupId>org.apache.jclouds.api</groupId>
+            <artifactId>openstack-nova</artifactId>
+            <version>${jclouds.version}</version>
+        </dependency>-->
+        <dependency>
+            <groupId>org.apache.jclouds</groupId>
+            <artifactId>jclouds-compute</artifactId>
+            <version>${jclouds.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.jclouds.api</groupId>
+            <artifactId>openstack-nova</artifactId>
+            <version>0.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/openstack-nova-2.0.0-SNAPSHOT.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.jclouds.driver</groupId>
+            <artifactId>jclouds-slf4j</artifactId>
+            <version>${jclouds.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jcraft</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.1.53</version>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>1.17</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-archiver</artifactId>
+            <version>2.3</version>
+        </dependency>
+        <dependency>
+            <groupId>jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>2.14.2</version>
+        </dependency>
+    </dependencies>
+    
+</project>
