@@ -74,7 +74,7 @@ Commands:
   The opposite of "ip-admin-add <X.X.X.X>".
 
 
-DETAILS (the variable names <X> are taken from config.yml):
+DETAILS (the variable names "<X>" are taken from config.yml):
 
 "create-env":
 - Bastion security setup if it was not previously done:
