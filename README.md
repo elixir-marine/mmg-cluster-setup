@@ -49,7 +49,7 @@ How to run:
   - When the username and password are checked, the user can start executing commands.
 - Method 2:
   - Open terminal in the tool folder, run the command:
-  - java -jar $(pwd)/Metapipe-cPouta.jar username=<username> password=<password>
+  - java -jar $(pwd)/Metapipe-cPouta.jar username={username} password={password}
   - When the username and password are checked, the user can start executing commands.
 
 Commands:
@@ -68,42 +68,42 @@ Commands:
   Deprovision of the existing cluster.
 - "remove-all":
   Removes the existing cluster + everything that was done by "create-env". A total clean-up.
-- "ip-admin-add <X.X.X.X>":
+- "ip-admin-add {X.X.X.X}":
   Open access to Ambari cluster management web-gui to the provided IP address or addresses.
-- "ip-admin-remove <X.X.X.X>":
-  The opposite of "ip-admin-add <X.X.X.X>".
+- "ip-admin-remove {X.X.X.X}":
+  The opposite of "ip-admin-add {X.X.X.X}".
 
 
-DETAILS (the variable names "<X>" are taken from config.yml):
+DETAILS (the variable names {X} are taken from config.yml):
 
 "create-env":
 - Bastion security setup if it was not previously done:
-  - Create security group with the name <bastionSecGroupName>.
-  - Create security group rule in the group <bastionSecGroupName> with the parameters: Ingress, port 22, protocol TCP, address 129.242.0.0/16.
-  - Create security group rule in the group <bastionSecGroupName> with the parameters: Ingress, port -, protocol ICMP, address 0.0.0.0/0. (made for being able to ping Bastion, will be removed in later versions)
-- Bastion keys setup if the key with the name <bastionKeyName> doesn't exist on CSC yet:
+  - Create security group with the name {bastionSecGroupName}.
+  - Create security group rule in the group {bastionSecGroupName} with the parameters: Ingress, port 22, protocol TCP, address 129.242.0.0/16.
+  - Create security group rule in the group {bastionSecGroupName} with the parameters: Ingress, port -, protocol ICMP, address 0.0.0.0/0. (made for being able to ping Bastion, will be removed in later versions)
+- Bastion keys setup if the key with the name {bastionKeyName} doesn't exist on CSC yet:
   - Generate keys in the .ssh folder if they don't exist, make them readable and writable for user only.
   - Register the public key on CSC.
 - Create Bastion host if it doesn't exist yet:
-  - Create server with name <bastionMachineName>, keyname <bastionKeyName>, security groups <bastionSecGroupName> and "default", network ID <networkId>.
+  - Create server with name {bastionMachineName}, keyname {bastionKeyName}, security groups {bastionSecGroupName} and "default", network ID {networkId}.
 - Attach a public IP address to the Bastion.
 - Set up Bastion:
   - Install required packages.
   - Install required packages (procedure repeated to check the successfully installed packages and install packages that for some reason might not have been installed during the previous step).
   - Install Ansible and required python virtualenv modules.
 - Create a key pair for future cluster(s):
-  - Remove key with the name <clusterKeyName> from CSC if it exists.
+  - Remove key with the name {clusterKeyName} from CSC if it exists.
   - Generate new key pair in the "temp" folder.
-  - Register the public key with the name <clusterKeyName> on CSC.
+  - Register the public key with the name {clusterKeyName} on CSC.
   - Transfer the key pair to the Bastion, place in .ssh folder.
   - Change read/write policies for the contents of the .ssh folder on Bastion.
 - Modify .ssh/config on Bastion:
-  - Host 192.168.1.* (taken from the Bastion private IP address), StrictHostKeyChecking no, IdentitiesOnly yes, IdentityFile ~/.ssh/<clusterKeyFileName>.
+  - Host 192.168.1.* (taken from the Bastion private IP address), StrictHostKeyChecking no, IdentitiesOnly yes, IdentityFile ~/.ssh/{clusterKeyFileName}.
 
 "create-cluster":
-- Create anti-affinity server group with the name <clusterName>-common, if it was not previously registered by the tool in config.yml.
+- Create anti-affinity server group with the name {clusterName}-common, if it was not previously registered by the tool in config.yml.
 - Generate "cluster_vars.yaml" file in the "temp" folder, using the to-be-readonly template "cluster_vars.yaml.template" and the values from config.yml.
-- Update the Ambari password to <ambariPassword> in first line of the "ambari-shell-commands".
+- Update the Ambari password to {ambariPassword} in first line of the "ambari-shell-commands".
 - Transfer this tool to the Bastion:
   - Put all tool components in an archive.
   - Transfer the archive to Bastion.
@@ -119,9 +119,9 @@ DETAILS (the variable names "<X>" are taken from config.yml):
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
 - Open access to the cluster master for all "admins":
-  - Get the IP used for the internet connection on the machine where the tool is running, via <ipCheck>.
-  - Add this IP to the <ipAdmins> list.
-  - For all IPs in the <ipAdmins> list, create a security group rule in the group <clusterName>-master with the parameters: Ingress, port 8080, protocol TCP.
+  - Get the IP used for the internet connection on the machine where the tool is running, via {ipCheck}.
+  - Add this IP to the {ipAdmins} list.
+  - For all IPs in the {ipAdmins} list, create a security group rule in the group {clusterName}-master with the parameters: Ingress, port 8080, protocol TCP.
 - Generate file "ambari_csc-spark-cluster_firefox.sh", which is an executable acting as a web shortcut for opening Ambari web-gui in the browser.
 - Launch the transfered copy of this tool on Bastion.
 - Running on Bastion:
@@ -131,16 +131,16 @@ DETAILS (the variable names "<X>" are taken from config.yml):
   - Running on Master:
     - Set up:
       - Execute the "ambari-shell-0.1.31.jar" component with the commands in "ambari-shell-commands" file.
-	- Change Ambari password from the default "admin" to <ambariPassword>.
+	- Change Ambari password from the default "admin" to {ambariPassword}.
 	- Additional user commands, if they were added by user to "ambari-shell-commands".
 	- https://cwiki.apache.org/confluence/display/AMBARI/Ambari+Shell.
       - Send start all services command to Ambari via "ambari-shell-0.1.31.jar", to make sure all Ambari services are being started.
       - Wait until all required services have status "STARTED".
 	- Can be also seen on the Ambari web admin,
 	- Once all required services have status "STARTED", can continue.
-      - Run commands to enable Spark and HDFS for <userName>:
-	- sudo -u hdfs hadoop fs -mkdir /user/<userName>
-	- sudo -u hdfs hadoop fs -chown -R <userName> /user/<userName>
+      - Run commands to enable Spark and HDFS for {userName}:
+	- sudo -u hdfs hadoop fs -mkdir /user/{userName}
+	- sudo -u hdfs hadoop fs -chown -R {userName} /user/{userName}
     - Test cluster:
       - Run Spark test "cluster_test.py" on the Master.
       - Run test "cluster_test.py" on all slave nodes.
