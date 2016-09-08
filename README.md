@@ -68,10 +68,10 @@ Commands:
   Deprovision of the existing cluster.
 - "remove-all":
   Removes the existing cluster + everything that was done by "create-env". A total clean-up.
-- "ip-admin-add {X.X.X.X}":
+- "ip-admin-add X.X.X.X":
   Open access to Ambari cluster management web-gui to the provided IP address or addresses.
-- "ip-admin-remove {X.X.X.X}":
-  The opposite of "ip-admin-add {X.X.X.X}".
+- "ip-admin-remove X.X.X.X":
+  The opposite of "ip-admin-add X.X.X.X".
 
 
 DETAILS (the variable names {X} are taken from config.yml):
