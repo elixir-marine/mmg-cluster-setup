@@ -114,7 +114,7 @@ DETAILS (the variable names <X> are taken from config.yml):
   - Execute ansible cluster provision script with the file "cluster_vars.yaml".
   - Execute ansible cluster configuration script with the file "cluster_vars.yaml".
   - INFO:
-    - Cluster deployment ansible script done by CSC-IT-Center-for-Science.
+    - Cluster deployment ansible script created by CSC-IT-Center-for-Science.
     - Script version of 07.08.2016.
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
