@@ -1,1 +1,0 @@
-users changepassword --user admin --oldpassword admin --newpassword admin1234 --adminuser true
