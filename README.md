@@ -3,7 +3,7 @@
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).
 
 This is the 1st version of the tool.
-Tested on Kubuntu 14.04, Ubuntu 16.04,
+Tested on clean installations of Kubuntu 14.04, Ubuntu 16.04,
   to be tested on other (K)Ubuntu and CentOS versions in the nearest days.
 
 Requirements:
@@ -34,8 +34,8 @@ Structure of the folder v1:
   https://cwiki.apache.org/confluence/display/AMBARI/Ambari+Shell
   however, the first line must is not to be modified.
   - "ambari_csc-spark-cluster_firefox.sh" (generated in the tool folder during cluster creation): executable file that acts as a weblink-shortcut that opens Ambari web-gui in Firefox.
-  -...all other files/folders: other tool components, not to be modified.
-- ...all other files/folders: Java project / source files.
+  - all other files/folders: other tool components, not to be modified.
+- all other files/folders: Java project / source files.
 
 2 know before running:
 - When the tool is launched, the first thing it does is the validation of "config.yml", so it should detect if something is wrong, even if, for example, user wrote 1 wrong letter in the flavor name.
