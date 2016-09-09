@@ -38,7 +38,7 @@ Structure of the folder v1:
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
   - all other files/folders: other tool components, not to be modified.
-- all other files/folders: Java project / source files.
+- all other files/folders: Java project / source files and components.
 
 2 know before running:
 - When the tool is launched, the first thing it does is the validation of "config.yml", so it should detect if something is wrong, even if, for example, user wrote 1 wrong letter in the flavor name.
