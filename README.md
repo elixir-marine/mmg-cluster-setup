@@ -12,7 +12,8 @@ Requirements:
 - Installed Java 8: "openjdk-8-jdk" for (K)Ubuntu, "java-1.8.0-openjdk" for CentOS.
 - Firefox.
 
-What it can do:
+What it is and what it can do:
+- Command-line Java tool that executes complex procedures by 1 or few commands.
 - Set up environment on CSC, in other words make all required preparations.
 - Provision cluster that has 1 master node, X regular nodes and X nodes with ssd; with flavor, image and other parameters defined in "config.yml".
 - Open access to cluster monitoring Ambari web admin for IPs registered in "config.yml".
