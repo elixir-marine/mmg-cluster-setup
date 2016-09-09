@@ -3,14 +3,14 @@
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).
 
 This is the 1st version of the tool.  
-Tested on clean installations of Kubuntu 14.04, Ubuntu 16.04,  
+Tested on clean installations of Kubuntu 14.04, Ubuntu 14.04/16.04,  
   to be tested on other (K)Ubuntu and CentOS versions in the nearest days.
 
 Requirements:
 - Linux distribution. (K)Ubuntu 14.04 or higher, or CentOS 6.8 or higher.
 - Username and password for CSC portal.
 - Installed Java 8: "openjdk-8-jdk" for (K)Ubuntu, "java-1.8.0-openjdk" for CentOS.
-- Firefox.
+- Firefox (for viewing Ambari cluster management web-gui).
 
 What it is and what it can do:
 - Command-line Java tool that executes complex procedures by 1 or few commands.
