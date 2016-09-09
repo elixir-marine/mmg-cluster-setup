@@ -22,7 +22,7 @@ What it can do:
 
 Limitations of the current version v1:
 - Does not yet install Metapipe.
-- Not implemented scale-up and scale-down, utilization of images.
+- Not implemented scale-up and scale-down, saving and utilization of saved images.
 - Only 1 cluster can exist per time.
 
 Structure of the folder v1:
