@@ -114,10 +114,10 @@ DETAILS (the variable names {X} are taken from config.yml):
   - Execute ansible cluster provision script with the file "cluster_vars.yaml".
   - Execute ansible cluster configuration script with the file "cluster_vars.yaml".
   - INFO:
-    - Cluster deployment ansible script created by CSC-IT-Center-for-Science.
-    - Script version of 07.08.2016.
-    - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
-    - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
+    Cluster deployment ansible script created by CSC-IT-Center-for-Science.
+    Script version of 07.08.2016.
+    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
+    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
 - Open access to the cluster master for all "admins":
   - Get the IP used for the internet connection on the machine where the tool is running, via {ipCheck}.
   - Add this IP to the {ipAdmins} list.
@@ -130,23 +130,23 @@ DETAILS (the variable names {X} are taken from config.yml):
   - Launch the transfered copy of this tool on Master.
   - Running on Master:
     - Set up:
-      - Execute the "ambari-shell-0.1.31.jar" component with the commands in "ambari-shell-commands" file.
-	- Change Ambari password from the default "admin" to {ambariPassword}.
-	- Additional user commands, if they were added by user to "ambari-shell-commands".
-	- https://cwiki.apache.org/confluence/display/AMBARI/Ambari+Shell.
+      - Execute the "ambari-shell-0.1.31.jar" component with the commands in "ambari-shell-commands" file:
+	Change Ambari password from the default "admin" to {ambariPassword}.
+	Additional user commands, if they were added by user to "ambari-shell-commands".
+	https://cwiki.apache.org/confluence/display/AMBARI/Ambari+Shell.
       - Send start all services command to Ambari via "ambari-shell-0.1.31.jar", to make sure all Ambari services are being started.
       - Wait until all required services have status "STARTED".
-	- Can be also seen on the Ambari web admin,
-	- Once all required services have status "STARTED", can continue.
+	Can be also seen on Ambari web admin,
+	Once all required services have status "STARTED", can continue.
       - Run commands to enable Spark and HDFS for {userName}:
-	- sudo -u hdfs hadoop fs -mkdir /user/{userName}
-	- sudo -u hdfs hadoop fs -chown -R {userName} /user/{userName}
+	sudo -u hdfs hadoop fs -mkdir /user/{userName}
+	sudo -u hdfs hadoop fs -chown -R {userName} /user/{userName}
     - Test cluster:
       - Run Spark test "cluster_test.py" on the Master.
       - Run test "cluster_test.py" on all slave nodes.
       - INFO:
-	- The standard script calculates the number of primes between 0 and 10000000.
-	- If the user hasn't replaced the contents of "cluster_test.py" with the own script, and if the cluster was set up correctly, the message "Number of primes in range from 0 to 10000000 is: 664579" will be in the tool output, 1 message for each of the 2 tests.
+	The standard script calculates the number of primes between 0 and 10000000.
+	If the user hasn't replaced the contents of "cluster_test.py" with the own script, and if the cluster was set up correctly, the message "Number of primes in range from 0 to 10000000 is: 664579" will be in the tool output, 1 message for each of the 2 tests.
 
 "create-all":
 - "create-env".
