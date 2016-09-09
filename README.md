@@ -113,11 +113,11 @@ DETAILS (the variable names {X} are taken from config.yml):
   - Export ANSIBLE_HOST_KEY_CHECKING as False.
   - Execute ansible cluster provision script with the file "cluster_vars.yaml".
   - Execute ansible cluster configuration script with the file "cluster_vars.yaml".
-  - INFO:
-    Cluster deployment ansible script created by CSC-IT-Center-for-Science.
-    Script version of 07.08.2016.
-    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
-    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
+  - INFO:  
+    Cluster deployment ansible script created by CSC-IT-Center-for-Science.  
+    Script version of 07.08.2016.  
+    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster  
+    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md  
 - Open access to the cluster master for all "admins":
   - Get the IP used for the internet connection on the machine where the tool is running, via {ipCheck}.
   - Add this IP to the {ipAdmins} list.
@@ -145,8 +145,8 @@ DETAILS (the variable names {X} are taken from config.yml):
       - Run Spark test "cluster_test.py" on the Master.
       - Run test "cluster_test.py" on all slave nodes.
       - INFO:
-	The standard script calculates the number of primes between 0 and 10000000.
-	If the user hasn't replaced the contents of "cluster_test.py" with the own script, and if the cluster was set up correctly, the message "Number of primes in range from 0 to 10000000 is: 664579" will be in the tool output, 1 message for each of the 2 tests.
+	The standard script calculates the number of primes between 0 and 10000000.  
+	If the user hasn't replaced the contents of "cluster_test.py" with the own script, and if the cluster was set up correctly, the message "Number of primes in range from 0 to 10000000 is: 664579" will be in the tool output, 1 message for each of the 2 tests.  
 
 "create-all":
 - "create-env".
