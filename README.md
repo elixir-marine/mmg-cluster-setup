@@ -2,8 +2,8 @@
 
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).
 
-This is the 1st version of the tool.
-Tested on clean installations of Kubuntu 14.04, Ubuntu 16.04,
+This is the 1st version of the tool.  
+Tested on clean installations of Kubuntu 14.04, Ubuntu 16.04,  
   to be tested on other (K)Ubuntu and CentOS versions in the nearest days.
 
 Requirements:
