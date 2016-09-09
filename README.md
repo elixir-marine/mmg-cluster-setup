@@ -3,7 +3,7 @@
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).
 
 This is the 1st version of the tool.  
-Tested on clean installation of Kubuntu 14.04, Ubuntu 12.04/14.04/16.04.
+Tested on clean installation of Kubuntu 14.04/16.04, Ubuntu 12.04/14.04/16.04.
 
 Requirements:
 - Linux distribution. Preferably (K)Ubuntu, v12.04 or higher.
@@ -34,6 +34,9 @@ Structure of the folder v1:
   https://cwiki.apache.org/confluence/display/AMBARI/Ambari+Shell
   however, the first line must is not to be modified.
   - "ambari_csc-spark-cluster_firefox.sh" (generated in the tool folder during cluster creation): executable file that acts as a weblink-shortcut that opens Ambari web-gui in Firefox.
+  - "pouta-ansible-cluster" folder: cluster provision/deprovision ansible script provided by CSC-IT-Center-for-Science, version of 07.08.2016. Not to be modified.
+    - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
+    - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
   - all other files/folders: other tool components, not to be modified.
 - all other files/folders: Java project / source files.
 
@@ -113,11 +116,6 @@ DETAILS (the variable names {X} are taken from config.yml):
   - Export ANSIBLE_HOST_KEY_CHECKING as False.
   - Execute ansible cluster provision script with the file "cluster_vars.yaml".
   - Execute ansible cluster configuration script with the file "cluster_vars.yaml".
-  - INFO:  
-    Cluster deployment ansible script created by CSC-IT-Center-for-Science.  
-    Script version of 07.08.2016.  
-    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster  
-    https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md  
 - Open access to the cluster master for all "admins":
   - Get the IP used for the internet connection on the machine where the tool is running, via {ipCheck}.
   - Add this IP to the {ipAdmins} list.
