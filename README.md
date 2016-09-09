@@ -144,7 +144,7 @@ DETAILS (the variable names {X} are taken from config.yml):
     - Test cluster:
       - Run Spark test "cluster_test.py" on the Master.
       - Run test "cluster_test.py" on all slave nodes.
-      - INFO:
+      - INFO:  
 	The standard script calculates the number of primes between 0 and 10000000.  
 	If the user hasn't replaced the contents of "cluster_test.py" with the own script, and if the cluster was set up correctly, the message "Number of primes in range from 0 to 10000000 is: 664579" will be in the tool output, 1 message for each of the 2 tests.  
 
