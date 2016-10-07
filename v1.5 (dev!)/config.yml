@@ -1,0 +1,94 @@
+
+# CHECK THE CORRECTNESS ACCORDING TO THE NEEDS/PREFERENCES:
+
+# pouta.csc.fi -> Project -> Compute -> Access & Security -> the service called "Identity"
+osAuthName: https://pouta.csc.fi:5001/v2.0
+
+# The name of your CSC project
+projectName: Project_2000053
+
+# pouta.csc.fi -> Project -> Network -> Networks -> the name of your project network
+networkName: project_2000053
+# pouta.csc.fi -> Project -> Network -> Networks -> your project network -> ID in Network Overview
+networkId: 88d1d9e6-8038-4258-9e50-91ced4fee75c
+
+bastionImage: CentOS-7.0
+bastionFlavor: standard.xlarge
+bastionMachineName: bastion_host
+bastionSecGroupName: bastion-metapipe
+
+clusterName: csc-spark-cluster
+clusterKeyName: my_cluster_key
+ambariPassword: admin1234
+
+master:
+  flavor: hpc-gen1.8core
+  image: CentOS-7.0
+  metadataVolumeSize: 100
+  nfsVolumeSize: 100
+
+# Choose (leave uncommented) at least one of the node groups, comment the unnecessary groups
+nodeGroups:
+  - regularHddNodes
+#  - ioHddSsdNodes
+
+regularHddNodes:
+  numNodes: 5
+  flavor: hpc-gen1.16core
+  image: CentOS-7.0
+  volumeSize: 50
+
+ioHddSsdNodes:
+  numNodes: 5
+  flavor: io.700GB
+  image: CentOS-7.0
+  # (SDD volume is defined in the name of an io-flavor)
+  hddVolumeSize: 50
+
+
+
+# TODO:
+# installationPackedLocationMaster: /export/share
+# installationUnpackedLocationMaster: /data/metapipe
+# imageDefault: CentOS-7.0
+# prepareInstallationScript: _prepare.sh
+# launchInstallationScript: _run.sh
+
+
+
+# SHOULD NOT OR MIGHT NOT HAVE NEED TO CHANGE:
+
+regionName: regionOne
+bastionAvailZone: nova
+
+bastionKeyName: my_bastion_key
+
+# Can add other admins' IPs here. The IP of the machine that executes the tool will be added automatically.
+ipAdmins:
+  - 129.242.158.200
+
+ipCheck: http://checkip.amazonaws.com
+
+
+
+
+# DO NOT CHANGE!
+
+userName: cloud-user
+
+clusterKeyFileName: id_rsa_csc_cluster
+
+bastionFloatingIpId:
+securityGroupId:
+serverGroupId:
+
+xternFiles:
+  ansibleScript: pouta-ansible-cluster
+  ambariShellJar: ambari-shell-0.1.31.jar # Download: http://maven.sequenceiq.com/releases/com/sequenceiq/ambari-shell/0.1.31/ambari-shell-0.1.31.jar
+  ambariShellCommands: ambari-shell-commands
+  clusterTestScript: cluster_test.py
+  thisJar: Metapipe-cPouta.jar
+  config: config.yml
+  ansibleClusterVars: cluster_vars.yaml
+  ansibleClusterVarsTemplate: cluster_vars.yaml.template
+  installation: installation_files

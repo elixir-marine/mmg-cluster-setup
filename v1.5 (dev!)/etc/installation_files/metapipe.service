@@ -1,0 +1,15 @@
+ 
+[Unit]
+Description=META-pipe
+After=network.target
+
+[Service]
+TimeoutStartSec=0
+ExecStartPre=source /home/cloud-user/.bashrc
+ExecStart=/usr/bin/java -jar /home/cloud-user/workflow-assembly-0.1-SNAPSHOT.jar validate
+User=cloud-user
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
