@@ -49,7 +49,6 @@ Structure of the tool folder "v2":
     - (not present in the Repo) "metapipe-deps-current.tar.gz" - META-pipe dependencies/databases.
     - (not present in the Repo) "ncbi-blast-2.4.0+-2.x86_64.rpm" - installation package for the new Blast, which will be added into "metapipe-deps-current.tar.gz" in the future.
     - (not present in the Repo) "blast-2.2.19-x64-linux.tar.gz" - installation package for the legacy Blast, which will be added into "metapipe-deps-current.tar.gz" in the future.
-    - Piping software files, other related files.
   - all other files/folders: other tool components, not to be modified.
 - all other files/folders: Java project / source files and components.
 
