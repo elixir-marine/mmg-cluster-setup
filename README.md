@@ -82,7 +82,7 @@ Commands:
   The combination of "create-env" and "create-cluster".
 - "test":
   Runs test script on the existing cluster, runs sw validation. A part of the "create-cluster" procedure, implemented also as a separate command to make it possible to test the stuff any time.
-- "launch:
+- "launch":
   Launches the installed Piping sw by running "_run.sh" file on master, holds the session until the sw finishes and exists.
 - "remove-cluster":
   Remove the existing cluster.
