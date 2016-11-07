@@ -45,10 +45,8 @@ Structure of the tool folder "v2":
     - "_run.sh": Is used to launch installed Piping sw. In the particular case, it launches META-pipe, either functional analyses ("_run_execution.sh"), or assembly ("_run_assembly.sh") which is not ready to be used on cPouta yet.
     - "_test.sh": Used to test/validate installed sw. In the particular case, it runs META-pipe validation.
     - "_init.sh": Init some env variables for the 3 scripts above.
-    - (not present in the Repo) "workflow-assembly-0.1-SNAPSHOT.jar" - META-pipe jar executable.
-    - (not present in the Repo) "metapipe-deps-current.tar.gz" - META-pipe dependencies/databases.
-    - (not present in the Repo) "ncbi-blast-2.4.0+-2.x86_64.rpm" - installation package for the new Blast, which will be added into "metapipe-deps-current.tar.gz" in the future.
-    - (not present in the Repo) "blast-2.2.19-x64-linux.tar.gz" - installation package for the legacy Blast, which will be added into "metapipe-deps-current.tar.gz" in the future.
+    - (not present in the Repo) "workflow-assembly-0.1-SNAPSHOT.jar" - META-pipe jar executable. Currently, version 18.
+    - (not present in the Repo) "metapipe-deps-current.tar.gz" - META-pipe dependencies/databases. Curently, version 10.
   - all other files/folders: other tool components, not to be modified.
 - all other files/folders: Java project / source files and components.
 
