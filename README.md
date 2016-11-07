@@ -1,6 +1,6 @@
 # mmg-cluster-setup
 
-Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).
+Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi). Currently in development.
 
 Was tested on clean installation of Kubuntu 14.04/16.04, Ubuntu 12.04/14.04/16.04.
 
