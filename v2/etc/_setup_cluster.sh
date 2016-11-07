@@ -49,6 +49,6 @@ echo "export SPARK_WORKER_INSTANCES=$EXECUTORS_PER_SLAVE" >> $SPARK_HOME/conf/sp
 echo "export SPARK_WORKER_MEMORY=$(($RAM_PER_EXECUTOR))g" >> $SPARK_HOME/conf/spark-env.sh
 
 . start-all.sh
-sudo chmod 777 -R /data/*
+sudo chmod 777 -R $SW_DIR/*
 . stop-all.sh
 
