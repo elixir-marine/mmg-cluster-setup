@@ -1,0 +1,16 @@
+ 
+[Unit]
+Description=META-pipe
+After=network.target
+
+[Service]
+TimeoutStartSec=0
+ExecStartPre=source /home/cloud-user/.bashrc
+ExecStartPre=/usr/bin/java -jar /home/cloud-user/workflow-assembly-0.1-SNAPSHOT.jar validate
+ExecStart=/usr/bin/java -jar /home/cloud-user/workflow-assembly-0.1-SNAPSHOT.jar execution-manager --executor-id test_executor --num-partitions 1000 --config-file /home/cloud-user/.metapipe/conf.json --job-tags csc-test
+User=cloud-user
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
