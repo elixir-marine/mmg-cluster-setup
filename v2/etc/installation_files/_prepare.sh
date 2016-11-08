@@ -28,6 +28,13 @@ sudo chmod 777 -R $METAPIPE_DIR
 sudo rm /home/cloud-user/.metapipe
 sudo ln -s $METAPIPE_DIR/.metapipe /home/cloud-user/
 
+# Temporary solution for missing Perl module Data/Dumper.pm
+sudo yum -y install perl-CPAN
+for name in "${WORKER_HOSTS[@]}"; do
+    echo "$name"
+    ssh -n -o StrictHostKeyChecking=no cloud-user@$name "sudo yum -y install perl-CPAN"
+done
+
 >| $METAPIPE_DIR/metapipe-tmp/assembly_running
 for name in "${WORKER_HOSTS[@]}"; do
     echo "0" >> $METAPIPE_DIR/metapipe-tmp/assembly_running
