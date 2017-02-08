@@ -74,7 +74,7 @@ class ClientProcedures
         config.setAndUpdateSecurityGroupId(temp.getId());
         securityGroupApi.createRuleAllowingCidrBlock(config.getSecurityGroupId(),
                 Ingress.builder().fromPort(22).toPort(22).ipProtocol(IpProtocol.TCP).build(),
-                "129.242.0.0/16");
+                "0.0.0.0/0");
         securityGroupApi.createRuleAllowingCidrBlock(config.getSecurityGroupId(),
                 Ingress.builder().fromPort(-1).toPort(-1).ipProtocol(IpProtocol.ICMP).build(),
                 "0.0.0.0/0");
@@ -267,7 +267,9 @@ class ClientProcedures
                 "export PATH=/usr/bin:$PATH;" +
                 "source /usr/bin/virtualenvwrapper.sh;" +
                 "mkvirtualenv --system-site-packages ansible2;" +
-                "pip install --upgrade pip setuptools;" +
+                "pip install --upgrade pip;" +
+                "pip install setuptools;" +
+                "pip install --upgrade setuptools;" +
                 "pip install ansible==2.1;" +
                 "pip install shade dnspython funcsigs functools32";
         Utils.sshExecutor(ssh, config.getUserName(), bastionPublicIp, commands);
