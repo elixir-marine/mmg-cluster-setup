@@ -78,7 +78,8 @@ public class MainClass implements Closeable
         REMOVE_ALL("remove-all"),
         IP_ADMIN_ADD("ip-admin-add"),
         IP_ADMIN_REMOVE("ip-admin-remove"),
-        LAUNCH_INSTALLATION("launch");
+        LAUNCH_SW("launch"),
+        STOP_SW("stop");
         private final String command;
         Commands(String command)
         {
@@ -207,6 +208,7 @@ public class MainClass implements Closeable
                 "create-all: 'create-env' + 'create-cluster'\n" +
                 "test: Run test script on the existing cluster, run validation of installed pipe software.\n" +
                 "launch: Launch the installed pipe software.\n" +
+                "stop: Kills all spark processes that are currently running on the cluster.\n" +
                 "remove-cluster: Remove existing cluster and keep the OS environment for future use.\n" +
                 "remove-all: Remove existing cluster, bastion, OS setups, cleanup everything.\n" +
                 "ip-admin-add X.X.X.X: Adding IP to admins will give the IP-owner access to cluster management web-gui.\n" +
@@ -354,9 +356,13 @@ public class MainClass implements Closeable
                 {
                     mainClass.removeIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_INSTALLATION.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_SW.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.launchInstallation();
+                    mainClass.launchSW();
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.STOP_SW.getCommand()) && cmd.length == 1)
+                {
+                    mainClass.stopSW();
                 }
                 else
                 {
@@ -467,7 +473,7 @@ public class MainClass implements Closeable
         }
     }
 
-    private void launchInstallation()
+    private void launchSW()
     {
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
@@ -486,6 +492,28 @@ public class MainClass implements Closeable
                     volumeApi, volumeAttachmentApi);
             System.out.println();
             this.runBastionRoutine(2);
+        }
+    }
+
+    private void stopSW()
+    {
+        if((bastion == null && !this.initBastionReference()) ||
+                Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
+        {
+            System.out.println("Bastion not found!");
+        }
+        else if(getMasterReference(config.getClusterName()) == null)
+        {
+            System.out.println("Cluster not found!");
+        }
+        else
+        {
+            System.out.println("\nLAUNCHING INSTALLED SOFTWARE.\n");
+            ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
+            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+                    volumeApi, volumeAttachmentApi);
+            System.out.println();
+            this.runBastionRoutine(3);
         }
     }
 

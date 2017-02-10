@@ -58,6 +58,7 @@ public final class Configuration
     private String installationPrepareScript;
     private String installationTestScript;
     private String installationLaunchScript;
+    private String installationStopScript;
 
     private String installationPackedLocation;
     private String installationUnpackedLocation;
@@ -462,6 +463,17 @@ public final class Configuration
     {
         this.installationLaunchScript =
                 Utils.stringValidate(installationLaunchScript, errorMessagePrefix + "installationLaunchScript");
+    }
+
+    public String getInstallationStopScript()
+    {
+        return installationStopScript;
+    }
+
+    public void setInstallationStopScript(String installationLaunchScript)
+    {
+        this.installationStopScript =
+                Utils.stringValidate(installationStopScript, errorMessagePrefix + "installationStopScript");
     }
 
     public String getInstallationPackedLocation()

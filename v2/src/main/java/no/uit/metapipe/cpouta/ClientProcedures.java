@@ -100,7 +100,6 @@ class ClientProcedures
             }
         }
         Utils.createNewKeyPair("id_rsa", sshFolder, ssh);
-        Utils.localExecutor("sudo chmod 600 " + sshFolder + "/" + "id_rsa;", true);
         System.out.println("Adding the key pair to Openstack...");
         try
         {

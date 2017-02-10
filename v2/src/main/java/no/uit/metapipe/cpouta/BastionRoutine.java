@@ -21,7 +21,13 @@ public class BastionRoutine
         if(index == 2)
         {
             ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
-            launchInstallation(ssh, config, master);
+            launchSW(ssh, config, master);
+            return;
+        }
+        else if(index == 3)
+        {
+            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
+            stopSW(ssh, config, master);
             return;
         }
         System.out.println("Launching final procedures on Bastion...");
@@ -113,12 +119,22 @@ public class BastionRoutine
         System.out.println("Finished validating installation software.\n");
     }
 
-    static void launchInstallation(JSch ssh, Configuration config, Server master)
+    static void launchSW(JSch ssh, Configuration config, Server master)
     {
-        System.out.println("Launching installation software...");
+        System.out.println("Launching Pipe software...");
         String commands =
                 "cd " + config.getInstallationUnpackedLocation() + ";" +
                         "source " + config.getInstallationLaunchScript() + " 2>&1;";
+        Utils.sshExecutor(ssh, config.getUserName(),
+                Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
+    }
+
+    static void stopSW(JSch ssh, Configuration config, Server master)
+    {
+        System.out.println("Stopping Pipe software...");
+        String commands =
+                "cd " + config.getInstallationUnpackedLocation() + ";" +
+                        "source " + config.getInstallationStopScript() + " 2>&1;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
     }
