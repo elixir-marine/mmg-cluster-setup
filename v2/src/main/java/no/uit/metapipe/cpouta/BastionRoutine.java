@@ -18,16 +18,14 @@ public class BastionRoutine
         System.out.println("\nBastion routine started...\n\n");
         prepareMaster(index != 0, ssh, config, master);
         System.out.println();
-        if(index == 2)
-        {
-            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
-            launchSW(ssh, config, master);
-            return;
-        }
-        else if(index == 3)
+        if(index == 2 || index == 3)
         {
             ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
             stopSW(ssh, config, master);
+            if(index == 2)
+            {
+                launchSW(ssh, config, master);
+            }
             return;
         }
         System.out.println("Launching final procedures on Bastion...");

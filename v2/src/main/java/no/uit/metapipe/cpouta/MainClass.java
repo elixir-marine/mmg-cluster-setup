@@ -455,11 +455,11 @@ public class MainClass implements Closeable
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
-            System.out.println("Bastion not found!");
+            System.out.println("Bastion not found!\n");
         }
         else if(getMasterReference(config.getClusterName()) == null)
         {
-            System.out.println("Cluster not found!");
+            System.out.println("Cluster not found!\n");
         }
         else
         {
@@ -478,11 +478,11 @@ public class MainClass implements Closeable
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
-            System.out.println("Bastion not found!");
+            System.out.println("Bastion not found!\n");
         }
         else if(getMasterReference(config.getClusterName()) == null)
         {
-            System.out.println("Cluster not found!");
+            System.out.println("Cluster not found!\n");
         }
         else
         {
@@ -500,11 +500,11 @@ public class MainClass implements Closeable
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
-            System.out.println("Bastion not found!");
+            System.out.println("Bastion not found!\n");
         }
         else if(getMasterReference(config.getClusterName()) == null)
         {
-            System.out.println("Cluster not found!");
+            System.out.println("Cluster not found!\n");
         }
         else
         {

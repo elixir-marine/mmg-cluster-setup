@@ -470,7 +470,7 @@ public final class Configuration
         return installationStopScript;
     }
 
-    public void setInstallationStopScript(String installationLaunchScript)
+    public void setInstallationStopScript(String installationStopScript)
     {
         this.installationStopScript =
                 Utils.stringValidate(installationStopScript, errorMessagePrefix + "installationStopScript");
