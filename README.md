@@ -1,5 +1,7 @@
 # mmg-cluster-setup
 
+(THIS DOCUMENTATION NEEDS TO BE UPDATED, the list of currently supported commands is shows when the tool is launched)
+
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi). Currently in development.
 
 Was tested on clean installation of Kubuntu 14.04/16.04, Ubuntu 12.04/14.04/16.04.
@@ -22,14 +24,14 @@ What it is and what it can do:
 - Vast amount of logging/debugging information displayed.
 
 Current limitations / 2-be-done in the future:
-- Caching using snapshots not implemented yet.
+- Caching using snapshots 2-be-done.
 - The use of anti-affinity groups is disabled until it is implemented in Ansible 2.2.
 - Only 1 bastion/cluster can exist per time.
-- Setup and running Piping software as a system service not implemented yet.
-- Piping software upload/update from a web-source not implemented yet, done locally from the client machine.
+- Setup and running Piping software as a system service 2-be-done.
+- Pipe software update command 2-be-done.
 - 1 Pipe job can run per time (on all available resources).
 
-Structure of the tool folder "v2":
+Structure of the tool folder "v3":
 - "out": Contains the tool executable and components.
   - "config.yml": The file to be edited by user. Important that it is set up correctly.
   - "Metapipe-cPouta.jar": the executable file.
@@ -45,14 +47,13 @@ Structure of the tool folder "v2":
     - "_run.sh": Is used to launch installed Piping sw. In the particular case, it launches META-pipe, either functional analyses ("_run_execution.sh"), or assembly ("_run_assembly.sh") which is not ready to be used on cPouta yet.
     - "_test.sh": Used to test/validate installed sw. In the particular case, it runs META-pipe validation.
     - "_init.sh": Init some env variables for the 3 scripts above.
-    - (not present in the Repo) "workflow-assembly-0.1-SNAPSHOT.jar" - META-pipe jar executable. Currently, version 18.
-    - (not present in the Repo) "metapipe-deps-current.tar.gz" - META-pipe dependencies/databases. Curently, version 10.
   - all other files/folders: other tool components, not to be modified.
 - all other files/folders: Java project / source files and components.
 
 2 know before running:
-- When the tool is launched, the first thing it does is the validation of "config.yml", so it should detect if something is wrong, even if, for example, user wrote 1 wrong letter in the flavor name.
-- However, make sure "config.yml" is configured correctly and according to the needs, pay attention to the comments in the file.
+- When the tool is launched, it validates the file "config.yml".
+- However, make sure it is configured correctly and according to the needs.
+- Pay attention to the comments in the file!
 
 How to run:
 - Method 1:
