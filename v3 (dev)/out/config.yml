@@ -24,7 +24,7 @@ clusterKeyName: my_cluster_key
 master:
   flavor: hpc-gen1.8core
   metadataVolumeSize: 100
-  nfsVolumeSize: 100
+  nfsVolumeSize: 200
 
 # Choose (leave uncommented) at least one of the node groups, comment the unnecessary groups
 nodeGroups:
@@ -50,8 +50,8 @@ swArtifactsOnline: true
 swArtifactsUsername: 
 swArtifactsPassword: 
 swArtifactsLinks:
-  - https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/11/metapipe-dependencies.tar.gz
-  - https://artifacts.sfb.uit.no/jenkins/newpan_tools/33/workflow-assembly-0.1-SNAPSHOT.jar
+  - https://artifacts.sfb.uit.no/jenkins/newpan_tools/34/workflow-assembly-0.1-SNAPSHOT.jar
+  - https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/12/metapipe-dependencies.tar.gz
 
 
 
@@ -68,7 +68,7 @@ ipAdmins:
   - 129.242.158.200
 
 swDiskName: pipe-SW
-swDiskSize: 200
+swDiskSize: 150
 
 ipCheck: http://checkip.amazonaws.com
 
@@ -83,7 +83,7 @@ clusterKeyFileName: id_rsa_csc_cluster
 
 imageDefault: CentOS-7.0
 
-# This 3 variables are set by the tool
+# This 4 variables are set by the tool
 bastionFloatingIpId: 
 securityGroupId:
 serverGroupId:

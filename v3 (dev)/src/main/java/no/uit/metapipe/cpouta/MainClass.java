@@ -5,6 +5,7 @@ import com.google.common.io.Closeables;
 import com.google.inject.Module;
 import com.jcraft.jsch.*;
 import jline.console.ConsoleReader;
+import jline.console.completer.ArgumentCompleter;
 import jline.console.completer.FileNameCompleter;
 import jline.console.completer.StringsCompleter;
 import org.jclouds.Constants;
@@ -65,7 +66,7 @@ public class MainClass implements Closeable
 
     private String osAuthOnBastionCommands;
 
-    private enum Commands
+    enum Commands
     {
         HELP("help"),
         QUIT("quit"),
@@ -79,8 +80,11 @@ public class MainClass implements Closeable
         REMOVE_ALL("remove-all"),
         IP_ADMIN_ADD("ip-admin-add"),
         IP_ADMIN_REMOVE("ip-admin-remove"),
-        LAUNCH_SW("launch"),
-        STOP_SW("stop");
+        LAUNCH_SW("sw-launch"),
+        LAUNCH_SW_DEV("sw-launch-dev"),
+        STOP_SW("sw-kill"),
+        STOP_SW_DEV("sw-kill-dev"),
+        UPDATE_SW("sw-update");
         private final String command;
         Commands(String command)
         {
@@ -204,15 +208,18 @@ public class MainClass implements Closeable
                 "help: This message.\n" +
                 "quit/exit: Exit.\n" +
                 "create-env: Create environment - required OS settings, bastion host \n" +
-                "create-cluster: Create a new cluster and set up pipe software " +
+                "create-cluster: Create a new cluster and set up Pipe software " +
                     "(given that 'create-env' was executed before, and cluster doesn't exist).\n" +
                 "create-all: 'create-env' + 'create-cluster'\n" +
-                "test: Run test script on the existing cluster, run validation of installed pipe software.\n" +
-                "launch: Launch the installed pipe software.\n" +
-                "stop: Kills all spark processes that are currently running on the cluster.\n" +
+                "test: Run test script on the existing Spark cluster, run validation of installed Pipe software.\n" +
+                "sw-launch: Launch the installed Pipe software.\n" +
+                "sw-launch-dev: Launch the installed Pipe software. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
+                "sw-kill: Stops all sw/spark processes running on the cluster.\n" +
+                "sw-kill-dev: Stops all sw/spark processes running on the cluster. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
+                "sw-update: (not implemented yet) Download the Pipe software components from the web-links defined in the config.yml and unpack them.\n" +
                 "remove-cluster: Remove existing cluster and keep the OS environment for future use.\n" +
-                "remove-all: Remove created cluster VMs, bastion, OS setups, cleanup everything.\n" +
-                "remove-env: Remove bastion, OS setups, cleanup everything. Created cluster VMs removal skipped. \n" +
+                "remove-env: Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. \n" +
+                "remove-all: Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything.\n" +
                 "ip-admin-add X.X.X.X: Adding IP to admins will give the IP-owner access to cluster management web-gui.\n" +
                 "ip-admin-remove X.X.X.X: Remove the IP from admins.\n";
         String usr = null, pswd = null;
@@ -242,7 +249,10 @@ public class MainClass implements Closeable
                     System.out.println("===== BASTION ROUTINE =====");
                     mainClass = new MainClass(usr, pswd, config.getClusterKeyFileName());
                     mainClass.initBastionReference();
-                    BastionRoutine.bastionRoutine(Integer.parseInt(arg.trim().replace("_bastion-routine=", "")),
+                    /*BastionRoutine.bastionRoutine(Integer.parseInt(arg.trim().replace("_bastion-routine=", "")),
+                            mainClass.ssh, config, mainClass.bastion, mainClass.getMasterReference(config.getClusterName()),
+                            mainClass.volumeApi, mainClass.volumeAttachmentApi);*/
+                    BastionRoutine.bastionRoutine(arg.trim().replace("_bastion-routine=", ""),
                             mainClass.ssh, config, mainClass.bastion, mainClass.getMasterReference(config.getClusterName()),
                             mainClass.volumeApi, mainClass.volumeAttachmentApi);
                     return;
@@ -262,7 +272,7 @@ public class MainClass implements Closeable
         {
             reader = new ConsoleReader(programName, inStream, System.out, null);
             reader.setPrompt("> ");
-            reader.addCompleter(new FileNameCompleter());
+            //reader.addCompleter(new FileNameCompleter()); // This FileNameCompleter disables the following StringsCompleter for the commands for some reason
             reader.addCompleter(new StringsCompleter(Arrays.asList(Commands.getCommands())));
             String line;
             PrintWriter out = new PrintWriter(reader.getOutput());
@@ -364,11 +374,23 @@ public class MainClass implements Closeable
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_SW.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.launchSW();
+                    mainClass.launchSW(false);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_SW_DEV.getCommand()) && cmd.length == 1)
+                {
+                    mainClass.launchSW(true);
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.STOP_SW.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.stopSW();
+                    mainClass.stopSW(false);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.STOP_SW_DEV.getCommand()) && cmd.length == 1)
+                {
+                    mainClass.stopSW(true);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.UPDATE_SW.getCommand()) && cmd.length == 1)
+                {
+                    out.println("\nCommand not implemented yet.\n");
                 }
                 else
                 {
@@ -451,7 +473,7 @@ public class MainClass implements Closeable
                 Utils.getServerPublicIp(getMasterReference(config.getClusterName()), config.getNetworkName()));
         System.out.println();
 //        ClientProcedures.attachSwDisk(config, getMasterReference(config.getClusterName()), volumeApi, volumeAttachmentApi);
-        this.runBastionRoutine(0);
+        this.runBastionRoutine(Commands.CREATE_CLUSTER.getCommand());
 //        ClientProcedures.detachSwDisk(config, getMasterReference(config.getClusterName()), volumeApi, volumeAttachmentApi);
         System.out.println("\nCREATING CLUSTER: FINISHED.\n");
     }
@@ -474,12 +496,12 @@ public class MainClass implements Closeable
             ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
                     volumeApi, volumeAttachmentApi);
             System.out.println();
-            this.runBastionRoutine(1);
+            this.runBastionRoutine(Commands.TEST.getCommand());
             System.out.println("\nTESTING CLUSTER FINISHED.\n");
         }
     }
 
-    private void launchSW()
+    private void launchSW(boolean devScriptsUpdate)
     {
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
@@ -492,16 +514,23 @@ public class MainClass implements Closeable
         }
         else
         {
-            System.out.println("\nLAUNCHING INSTALLED SOFTWARE.\n");
-            ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
-                    volumeApi, volumeAttachmentApi);
-            System.out.println();
-            this.runBastionRoutine(2);
+            System.out.println("\nLAUNCHING PIPE SOFTWARE.\n");
+            if(devScriptsUpdate)
+            {
+                ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
+                ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+                        volumeApi, volumeAttachmentApi);
+                System.out.println();
+                this.runBastionRoutine(Commands.LAUNCH_SW_DEV.getCommand());
+            }
+            else
+            {
+                this.runBastionRoutine(Commands.LAUNCH_SW.getCommand());
+            }
         }
     }
 
-    private void stopSW()
+    private void stopSW(boolean devScriptsUpdate)
     {
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
@@ -514,12 +543,19 @@ public class MainClass implements Closeable
         }
         else
         {
-            System.out.println("\nLAUNCHING INSTALLED SOFTWARE.\n");
-            ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
-                    volumeApi, volumeAttachmentApi);
-            System.out.println();
-            this.runBastionRoutine(3);
+            System.out.println("\nSTOPPING PIPE SOFTWARE.\n");
+            if(devScriptsUpdate)
+            {
+                ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
+                ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+                        volumeApi, volumeAttachmentApi);
+                System.out.println();
+                this.runBastionRoutine(Commands.STOP_SW_DEV.getCommand());
+            }
+            else
+            {
+                this.runBastionRoutine(Commands.STOP_SW.getCommand());
+            }
         }
     }
 
@@ -607,7 +643,7 @@ public class MainClass implements Closeable
 
 
 
-    private void runBastionRoutine(int mode)
+    private void runBastionRoutine(String mode)
     {
         System.out.println("Launching this JAR on Bastion...");
         String commands =
@@ -800,7 +836,7 @@ public class MainClass implements Closeable
             }
             else if(cmd[0].equals("-cc.j"))
             {
-                mainClass.runBastionRoutine(0);
+                mainClass.runBastionRoutine(Commands.CREATE_CLUSTER.getCommand());
             }
         }
         else if(cmd[0].contains("-r.") && cmd.length == 1)
@@ -821,7 +857,7 @@ public class MainClass implements Closeable
         }
         else
         {
-            out.println("Invalid command.");
+            out.println("\nInvalid command.\n");
         }
     }
 

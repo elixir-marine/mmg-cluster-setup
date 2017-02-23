@@ -948,7 +948,7 @@ class ClientProcedures
     static void detachSwDisk(Configuration config, Server server, VolumeApi volumeApi,
                                         VolumeAttachmentApi volumeAttachmentApi)
     {
-        System.out.println("Detaching swDisk to " + server.getName() + "...");
+        System.out.println("Detaching swDisk from " + server.getName() + "...");
         VolumeAttachment va = volumeAttachmentApi.getAttachmentForVolumeOnServer(config.getSwDiskID(), server.getId());
         if(va == null)
         {
@@ -1045,14 +1045,22 @@ class ClientProcedures
             commands += "sudo rm -r " + swPath + ";";
         }
         commands += "sudo mkdir " + swPath + ";" +
-                "sudo chmod 777 " + swPath + ";";
+                "sudo chmod 777 -R " + "/media/" + config.getSwDiskName() + "/" + ";";
         if(config.isSwArtifactsOnline())
         {
             for(String s : config.getSwArtifactsLinks())
             {
-                commands += "cd " + swPath + ";" +
-                        "curl -O -u " + config.getSwArtifactsUsername() + ":" + config.getSwArtifactsPassword() + " " + s + " 2>&1;" +
-                        "cd ~;";
+                ////"curl -O -u " + config.getSwArtifactsUsername() + ":" + config.getSwArtifactsPassword() + " " + s + " 2>&1;" +
+//                commands += "cd " + swPath + ";";
+//                commands += "wget --user=" + config.getSwArtifactsUsername() + " --password=" + config.getSwArtifactsPassword()  + " ";
+//                if(!replace) commands += "--no-clobber "; else commands += "-r ";
+//                commands += s + " 2>&1;";
+//                commands += "cd ~;";
+                commands += "cd " + swPath + ";";
+                if(!replace) commands += "if ! [ -f " + Utils.getFileNameFromPath(s) + " ]; then ";
+                commands += "curl -O -u " + config.getSwArtifactsUsername() + ":" + config.getSwArtifactsPassword() + " " + s + " 2>&1; ";
+                if(!replace) commands += "else echo '" + Utils.getFileNameFromPath(s) + ": File already exists! Not replaced'; fi; ";
+                commands += "cd ~;";
             }
         }
         System.out.println();

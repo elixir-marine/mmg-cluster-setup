@@ -51,6 +51,7 @@ elif [ "$2" == "mount" ]; then
     df -aTh | grep --color=NEVER "/dev/v"
 elif [ "$2" == "unmount" ]; then
     sudo umount ${DEVICE}1
+    sudo rm -r /media/$DISK_NAME
     echo "Partition unmounted."
     df -aTh | grep --color=NEVER "/dev/v"
 else

@@ -12,17 +12,23 @@ public class BastionRoutine
 
     private BastionRoutine() { }
 
-    static void bastionRoutine(int index, JSch ssh, Configuration config, Server bastion, Server master,
+    static void bastionRoutine(String index, JSch ssh, Configuration config, Server bastion, Server master,
                                VolumeApi volumeApi, VolumeAttachmentApi volumeAttachmentApi)
     {
         System.out.println("\nBastion routine started...\n\n");
-        prepareMaster(index != 0, ssh, config, master);
+        prepareMaster(!index.equals(MainClass.Commands.CREATE_CLUSTER.getCommand()), ssh, config, master);
         System.out.println();
-        if(index == 2 || index == 3)
+        if(     index.equals(MainClass.Commands.LAUNCH_SW.getCommand()) ||
+                index.equals(MainClass.Commands.LAUNCH_SW_DEV.getCommand()) ||
+                index.equals(MainClass.Commands.STOP_SW.getCommand()) ||
+                index.equals(MainClass.Commands.STOP_SW_DEV.getCommand()))
         {
-            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
+            if(index.equals(MainClass.Commands.LAUNCH_SW_DEV.getCommand()) || index.equals(MainClass.Commands.STOP_SW_DEV.getCommand()))
+            {
+                ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, master, false, volumeApi, volumeAttachmentApi);
+            }
             stopSW(ssh, config, master);
-            if(index == 2)
+            if(index.equals(MainClass.Commands.LAUNCH_SW.getCommand()) || index.equals(MainClass.Commands.LAUNCH_SW_DEV.getCommand()))
             {
                 launchSW(ssh, config, master);
             }
@@ -30,15 +36,15 @@ public class BastionRoutine
         }
         System.out.println("Launching final procedures on Bastion...");
 //        runMasterRoutine(index == 1, ssh, config, master);
-        if(index == 0)
+        if(index.equals(MainClass.Commands.CREATE_CLUSTER.getCommand()))
         {
             clusterSetup(ssh, config, master);
         }
         clusterTest(ssh, config, master);
         System.out.println();
-        if(index == 0)
+        if(index.equals(MainClass.Commands.CREATE_CLUSTER.getCommand()))
         {
-            prepareInstallation(ssh, config, master, volumeApi, volumeAttachmentApi);
+            prepareSwOnCluster(ssh, config, master, volumeApi, volumeAttachmentApi);
         }
         else
         {
@@ -89,8 +95,8 @@ public class BastionRoutine
         System.out.println("Cluster test complete.\n");
     }
 
-    static void prepareInstallation(JSch ssh, Configuration config, Server master,
-                                    VolumeApi volumeApi, VolumeAttachmentApi volumeAttachmentApi)
+    static void prepareSwOnCluster(JSch ssh, Configuration config, Server master,
+                                   VolumeApi volumeApi, VolumeAttachmentApi volumeAttachmentApi)
     {
         System.out.println("Started transfering/preparing installation software...");
         String swPath = "/media/" + config.getSwDiskName() + "/" + config.getInstallationPackedLocation();
