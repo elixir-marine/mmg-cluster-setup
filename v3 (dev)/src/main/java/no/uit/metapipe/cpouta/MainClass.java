@@ -5,14 +5,14 @@ import com.google.common.io.Closeables;
 import com.google.inject.Module;
 import com.jcraft.jsch.*;
 import jline.console.ConsoleReader;
-import jline.console.completer.ArgumentCompleter;
-import jline.console.completer.FileNameCompleter;
 import jline.console.completer.StringsCompleter;
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
 //import org.jclouds.docker.options.ListImageOptions;
 import org.jclouds.net.domain.IpProtocol;
 //import org.jclouds.openstack.glance.v1_0.options.ListImageOptions;
+import org.jclouds.openstack.keystone.v2_0.KeystoneApi;
+import org.jclouds.openstack.keystone.v2_0.KeystoneApiMetadata;
 import org.jclouds.openstack.keystone.v2_0.config.CredentialTypes;
 import org.jclouds.openstack.keystone.v2_0.config.KeystoneProperties;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
@@ -40,6 +40,7 @@ public class MainClass implements Closeable
     private static Configuration config = null;
 
     static String testString = "test";
+    static String unmountSwDiskFromMaster = "unmountSwDiskFromMaster";
 
     private String userName;
     private String password;
@@ -48,6 +49,7 @@ public class MainClass implements Closeable
     private File tempFolderFile;
 
     private NovaApi novaApi;
+    private KeystoneApi keystoneApi;
     private Set<String> regions;
     private SecurityGroupApi securityGroupApi;
     private ServerApi serverApi;
@@ -58,6 +60,8 @@ public class MainClass implements Closeable
     private VolumeApi volumeApi;
     private VolumeAttachmentApi volumeAttachmentApi;
 //    private ServerGroupApi serverGroupApi;
+
+    private HardwareStats hardwareStats;
 
     private Server bastion;
 
@@ -71,20 +75,21 @@ public class MainClass implements Closeable
         HELP("help"),
         QUIT("quit"),
         EXIT("exit"),
+        STAT("overview"),
         CREATE_ENV("create-env"),
         CREATE_CLUSTER("create-cluster"),
         CREATE_ALL("create-all"),
         TEST("test"),
+        SW_LAUNCH("sw-launch"),
+        SW_LAUNCH_DEV("sw-launch-dev"),
+        SW_STOP("sw-kill"),
+        SW_STOP_DEV("sw-kill-dev"),
+        SW_UPDATE("sw-update"),
         REMOVE_CLUSTER("remove-cluster"),
         REMOVE_ENV("remove-env"),
         REMOVE_ALL("remove-all"),
         IP_ADMIN_ADD("ip-admin-add"),
-        IP_ADMIN_REMOVE("ip-admin-remove"),
-        LAUNCH_SW("sw-launch"),
-        LAUNCH_SW_DEV("sw-launch-dev"),
-        STOP_SW("sw-kill"),
-        STOP_SW_DEV("sw-kill-dev"),
-        UPDATE_SW("sw-update");
+        IP_ADMIN_REMOVE("ip-admin-remove");
         private final String command;
         Commands(String command)
         {
@@ -106,7 +111,6 @@ public class MainClass implements Closeable
         }
     }
 
-    // RUN JAR IN TERMINAL: java -jar $(pwd)/Metapipe-cPouta.jar
     private MainClass(String userName, String password, String idRsaKeyFileName)
     {
         System.out.print("Starting... \n\n");
@@ -158,6 +162,12 @@ public class MainClass implements Closeable
                     .overrides(overrides)
                     .buildApi(NovaApi.class);
 
+            keystoneApi = ContextBuilder.newBuilder(new KeystoneApiMetadata())
+                    .endpoint(config.getOsAuthName())
+                    .credentials(userName, password)
+                    .modules(modules)
+                    .buildApi(KeystoneApi.class);
+
             regions = novaApi.getConfiguredRegions();
             serverApi = novaApi.getServerApi(config.getRegionName());
             flavorApi = novaApi.getFlavorApi(config.getRegionName());
@@ -168,6 +178,7 @@ public class MainClass implements Closeable
             volumeApi = novaApi.getVolumeApi(config.getRegionName()).get();
             volumeAttachmentApi = novaApi.getVolumeAttachmentApi(config.getRegionName()).get();
 //            serverGroupApi = novaApi.getServerGroupApi(config.getRegionName()).get();
+            hardwareStats = HardwareStats.loadHardwareStats(config, novaApi, keystoneApi);
         }
 
         String path = MainClass.class.getProtectionDomain().getCodeSource().getLocation().getPath();
@@ -205,23 +216,24 @@ public class MainClass implements Closeable
                 "BE SURE THAT CONFIG.YML IS CONFIGURED CORRECTLY.\n";
         final String helpOps =
                 "Commands:\n" +
-                "help: This message.\n" +
-                "quit/exit: Exit.\n" +
-                "create-env: Create environment - required OS settings, bastion host \n" +
-                "create-cluster: Create a new cluster and set up Pipe software " +
+                Commands.HELP.getCommand() + ": This message.\n" +
+                Commands.QUIT.getCommand() + "/" + Commands.EXIT.getCommand() + ": Exit.\n" +
+                Commands.STAT.getCommand() + ": Info about total/used/available resources, resources required for 'create-*' commands.\n" +
+                Commands.CREATE_ENV.getCommand() + ": Create environment - required OS settings, bastion host \n" +
+                Commands.CREATE_CLUSTER.getCommand() + ": Create a new cluster and set up Pipe software " +
                     "(given that 'create-env' was executed before, and cluster doesn't exist).\n" +
-                "create-all: 'create-env' + 'create-cluster'\n" +
-                "test: Run test script on the existing Spark cluster, run validation of installed Pipe software.\n" +
-                "sw-launch: Launch the installed Pipe software.\n" +
-                "sw-launch-dev: Launch the installed Pipe software. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
-                "sw-kill: Stops all sw/spark processes running on the cluster.\n" +
-                "sw-kill-dev: Stops all sw/spark processes running on the cluster. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
-                "sw-update: (not implemented yet) Download the Pipe software components from the web-links defined in the config.yml and unpack them.\n" +
-                "remove-cluster: Remove existing cluster and keep the OS environment for future use.\n" +
-                "remove-env: Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. \n" +
-                "remove-all: Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything.\n" +
-                "ip-admin-add X.X.X.X: Adding IP to admins will give the IP-owner access to cluster management web-gui.\n" +
-                "ip-admin-remove X.X.X.X: Remove the IP from admins.\n";
+                Commands.CREATE_ALL.getCommand() + ": 'create-env' + 'create-cluster'\n" +
+                Commands.TEST.getCommand() + ": Run test script on the existing Spark cluster, run validation of installed Pipe software.\n" +
+                Commands.SW_LAUNCH.getCommand() + ": Launch the installed Pipe software.\n" +
+                Commands.SW_LAUNCH_DEV.getCommand() + ": Launch the installed Pipe software. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
+                Commands.SW_STOP.getCommand() + ": Stops all sw/spark processes running on the cluster.\n" +
+                Commands.SW_STOP_DEV.getCommand() + ": Stops all sw/spark processes running on the cluster. Before launching, the components of the tool are updated on Bastion and SW-Disk.\n" +
+                Commands.SW_UPDATE.getCommand() + ": Re-download Pipe software to the existing environment, and re-install it on the cluster if it exists.\n" +
+                Commands.REMOVE_CLUSTER.getCommand() + ": Remove existing cluster and keep the OS environment for future use.\n" +
+                Commands.REMOVE_ENV.getCommand() + ": Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. \n" +
+                Commands.REMOVE_ALL.getCommand() + ": Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything.\n" +
+                Commands.IP_ADMIN_ADD.getCommand() + " X.X.X.X: Adding IP to admins will give the IP-owner access to cluster management web-gui.\n" +
+                Commands.IP_ADMIN_REMOVE.getCommand() + " X.X.X.X: Remove the IP from admins.\n";
         String usr = null, pswd = null;
 
         config = Configuration.loadConfig();
@@ -317,14 +329,17 @@ public class MainClass implements Closeable
                 }
                 out.println("\nLogged in successfully.\n");
             }
-            out.println(help);
-            out.println(helpOps);
+
             mainClass = new MainClass(usr, pswd, "id_rsa");
             mainClass.configValidateWithNova(config);
+            ClientProcedures.prepareToolComponents(config, mainClass.tempFolder, mainClass.flavorApi, false);
+            out.println(help);
+            out.println(helpOps);
             while ((line = reader.readLine()) != null)
             {
                 String[] cmd = line.split("\\s+");
                 config = Configuration.loadConfig();
+                ClientProcedures.prepareToolComponents(config, mainClass.tempFolder, mainClass.flavorApi, false);
                 if(cmd[0].equalsIgnoreCase(Commands.HELP.getCommand()) && cmd.length == 1)
                 {
                     out.println("\n" + help);
@@ -335,18 +350,47 @@ public class MainClass implements Closeable
                     out.println();
                     break;
                 }
+                else if(cmd[0].equalsIgnoreCase(Commands.STAT.getCommand()) && cmd.length == 1)
+                {
+                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.keystoneApi);
+                    mainClass.hardwareStats.printStats(System.out, config, mainClass.novaApi, mainClass.keystoneApi);
+                }
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ENV.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.createEnv();
+                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.keystoneApi);
+                    if(mainClass.hardwareStats.canCreateEnv(System.out, config, mainClass.novaApi, mainClass.keystoneApi))
+                    {
+                        mainClass.createEnv();
+                    }
+                    else
+                    {
+                        out.println("OPERATION CANCELED.\n");
+                    }
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_CLUSTER.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.createCluster();
+                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.keystoneApi);
+                    if(mainClass.hardwareStats.canCreateCluster(System.out, config, mainClass.novaApi, mainClass.keystoneApi))
+                    {
+                        mainClass.createCluster();
+                    }
+                    else
+                    {
+                        out.println("OPERATION CANCELED.\n");
+                    }
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ALL.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.createEnv();
-                    mainClass.createCluster();
+                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.keystoneApi);
+                    if(mainClass.hardwareStats.canCreateAll(System.out, config, mainClass.novaApi, mainClass.keystoneApi))
+                    {
+                        mainClass.createEnv();
+                        mainClass.createCluster();
+                    }
+                    else
+                    {
+                        out.println("OPERATION CANCELED.\n");
+                    }
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_CLUSTER.getCommand()) && cmd.length == 1)
                 {
@@ -372,25 +416,25 @@ public class MainClass implements Closeable
                 {
                     mainClass.removeIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_SW.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.SW_LAUNCH.getCommand()) && cmd.length == 1)
                 {
                     mainClass.launchSW(false);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.LAUNCH_SW_DEV.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.SW_LAUNCH_DEV.getCommand()) && cmd.length == 1)
                 {
                     mainClass.launchSW(true);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.STOP_SW.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.SW_STOP.getCommand()) && cmd.length == 1)
                 {
                     mainClass.stopSW(false);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.STOP_SW_DEV.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.SW_STOP_DEV.getCommand()) && cmd.length == 1)
                 {
                     mainClass.stopSW(true);
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.UPDATE_SW.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.SW_UPDATE.getCommand()) && cmd.length == 1)
                 {
-                    out.println("\nCommand not implemented yet.\n");
+                    mainClass.updateSW();
                 }
                 else
                 {
@@ -410,17 +454,20 @@ public class MainClass implements Closeable
 
     private void createEnv()
     {
-        config = Configuration.loadConfig();
         System.out.println("\nCREATING ENVIRONMENT: STARTED.\n");
         ClientProcedures.bastionSecGroupCreate(securityGroupApi, config);
         System.out.println();
         ClientProcedures.bastionKeyPairCreate(ssh, sshFolder, config.getBastionKeyName(), keyPairApi);
         System.out.println();
-        this.bastion = ClientProcedures.bastionServerCreate(serverApi, imageApi, flavorApi, config);
+        this.bastion = ClientProcedures.bastionServerCreate(serverApi, imageApi, flavorApi, config, ssh);
         System.out.println();
         ClientProcedures.bastionIpAllocate(config, floatingIPApi, bastion);
         System.out.println();
         this.initBastionReference();
+        System.out.println();
+        ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
+        System.out.println();
+        ClientProcedures.disablePasswordAuth(ssh, config, this.bastion);
         System.out.println();
         ClientProcedures.bastionPackagesInstall(ssh, bastion, config, serverApi);
         ClientProcedures.bastionPackagesInstall(ssh, bastion, config, serverApi);
@@ -431,9 +478,7 @@ public class MainClass implements Closeable
         System.out.println();
         ClientProcedures.bastionSshConfigCreate(ssh, bastion, config, tempFolder);
         System.out.println();
-        ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-        System.out.println();
-        ClientProcedures.createDisk4SW(ssh, config, volumeApi, bastion, volumeAttachmentApi);
+        ClientProcedures.createSwDisk(ssh, config, volumeApi, bastion, volumeAttachmentApi);
         System.out.println();
         ClientProcedures.attachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
         System.out.println();
@@ -445,7 +490,6 @@ public class MainClass implements Closeable
 
     private void createCluster()
     {
-        config = Configuration.loadConfig();
         System.out.println("\nCREATING CLUSTER: STARTED.\n");
         if(bastion == null && !this.initBastionReference())
         {
@@ -454,13 +498,13 @@ public class MainClass implements Closeable
         System.out.println();
 //        ClientProcedures.clusterServerGroupCreate(config, userName, password);
 //        System.out.println();
-        ClientProcedures.createClusterVarsFile(config, tempFolder);
+        ClientProcedures.prepareToolComponents(config, tempFolder, flavorApi, true);
         System.out.println();
 //        ClientProcedures.updateAmbariShellCommandFile(config);
 //        System.out.println();
         ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
         System.out.println();
-        ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+        ClientProcedures.transferSwBashScripts(ssh, config, bastion, bastion, true,
                 volumeApi, volumeAttachmentApi);
         System.out.println();
         ClientProcedures.bastionClusterProvisionExecute(ssh, config, bastion, osAuthOnBastionCommands);
@@ -493,7 +537,7 @@ public class MainClass implements Closeable
         {
             System.out.println("\nTESTING CLUSTER STARTED.\n");
             ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-            ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+            ClientProcedures.transferSwBashScripts(ssh, config, bastion, bastion, true,
                     volumeApi, volumeAttachmentApi);
             System.out.println();
             this.runBastionRoutine(Commands.TEST.getCommand());
@@ -518,14 +562,14 @@ public class MainClass implements Closeable
             if(devScriptsUpdate)
             {
                 ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-                ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+                ClientProcedures.transferSwBashScripts(ssh, config, bastion, bastion, true,
                         volumeApi, volumeAttachmentApi);
                 System.out.println();
-                this.runBastionRoutine(Commands.LAUNCH_SW_DEV.getCommand());
+                this.runBastionRoutine(Commands.SW_LAUNCH_DEV.getCommand());
             }
             else
             {
-                this.runBastionRoutine(Commands.LAUNCH_SW.getCommand());
+                this.runBastionRoutine(Commands.SW_LAUNCH.getCommand());
             }
         }
     }
@@ -547,16 +591,75 @@ public class MainClass implements Closeable
             if(devScriptsUpdate)
             {
                 ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
-                ClientProcedures.updateInstallationBashScripts(ssh, config, bastion, bastion, true,
+                ClientProcedures.transferSwBashScripts(ssh, config, bastion, bastion, true,
                         volumeApi, volumeAttachmentApi);
                 System.out.println();
-                this.runBastionRoutine(Commands.STOP_SW_DEV.getCommand());
+                this.runBastionRoutine(Commands.SW_STOP_DEV.getCommand());
             }
             else
             {
-                this.runBastionRoutine(Commands.STOP_SW.getCommand());
+                this.runBastionRoutine(Commands.SW_STOP.getCommand());
             }
         }
+    }
+
+    private void updateSW()
+    {
+        System.out.println("\nSW-UPDATE STARTED.\n");
+        if((bastion == null && !this.initBastionReference()) ||
+                Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
+        {
+            System.out.println("Bastion not found! SW-UPDATE is meant to be run after CREATE-ENV or CREATE-ALL.\n");
+            return;
+        }
+        if(!ClientProcedures.swDiskExists(config, volumeApi))
+        {
+            System.out.println("SW-disk not found! SW-UPDATE is meant to be run after CREATE-ENV or CREATE-ALL.\n");
+            return;
+        }
+        Server master = getMasterReference(config.getClusterName());
+        if(master != null)
+        {
+            System.out.println("Master found, attempting to detach SW-disk if it was attached.\n");
+            if(ClientProcedures.isAttachedSwDisk(config, master, volumeAttachmentApi))
+            {
+                System.out.println();
+                stopSW(false);
+                System.out.println();
+                runBastionRoutine(unmountSwDiskFromMaster);
+                System.out.println();
+                ClientProcedures.detachSwDisk(config, master, volumeApi, volumeAttachmentApi);
+                System.out.println();
+            }
+            ClientProcedures.prepareToolComponents(config, tempFolder, flavorApi, false);
+        }
+        else
+        {
+            ClientProcedures.prepareToolComponents(config, tempFolder, flavorApi, true);
+        }
+        System.out.println();
+        ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
+        System.out.println();
+        ClientProcedures.transferSwBashScripts(ssh, config, bastion, bastion, true,
+                volumeApi, volumeAttachmentApi);
+        System.out.println();
+        ClientProcedures.attachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
+        System.out.println();
+        ClientProcedures.transferSwFiles2VDisk(ssh, config, bastion, true);
+        System.out.println();
+        ClientProcedures.detachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
+        System.out.println();
+        if(master != null)
+        {
+            runBastionRoutine(Commands.SW_UPDATE.getCommand());
+            System.out.println();
+        }
+        else
+        {
+            System.out.println("Master not found, skipping cluster part of SW-Update.\n");
+        }
+        //System.out.println("\nCommand not implemented yet.\n");
+        System.out.println("\nSW-UPDATE FINISHED.\n");
     }
 
     private void removeAll()
@@ -595,7 +698,7 @@ public class MainClass implements Closeable
         {
             if(!new File(tempFolder + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars"))).exists())
             {
-                ClientProcedures.createClusterVarsFile(config, tempFolder);
+                ClientProcedures.prepareToolComponents(config, tempFolder, flavorApi, true);
             }
             System.out.println("\nREMOVING CLUSTER STARTED.\n");
             ClientProcedures.transferRequiredFiles2Bastion(ssh, config, bastion, tempFolder);
@@ -733,7 +836,7 @@ public class MainClass implements Closeable
             System.out.println("\n" + errors + "\n");
             exit(1);
         }
-        System.out.println("Validation finished.\n");
+        System.out.println("Validation finished.");
     }
 
     private String getValidWithNovaErrors(Configuration config)
@@ -779,7 +882,7 @@ public class MainClass implements Closeable
                         config.getBastionKeyName(), mainClass.keyPairApi);
             else if(cmd[0].equals("-ce.c"))
                 ClientProcedures.bastionServerCreate(mainClass.serverApi,
-                        mainClass.imageApi, mainClass.flavorApi, config);
+                        mainClass.imageApi, mainClass.flavorApi, config, mainClass.ssh);
             mainClass.initBastionReference();
             if(cmd[0].equals("-ce.d"))
                 ClientProcedures.bastionIpAllocate(config, mainClass.floatingIPApi, mainClass.bastion);
@@ -794,7 +897,7 @@ public class MainClass implements Closeable
             else if(cmd[0].equals("-ce.h"))
                 ClientProcedures.bastionSshConfigCreate(mainClass.ssh, mainClass.bastion, config, mainClass.tempFolder);
             else if(cmd[0].equals("-ce.i"))
-                ClientProcedures.createDisk4SW(mainClass.ssh, config, mainClass.volumeApi,
+                ClientProcedures.createSwDisk(mainClass.ssh, config, mainClass.volumeApi,
                         mainClass.bastion, mainClass.volumeAttachmentApi);
             else if(cmd[0].equals("-ce.j"))
                 ClientProcedures.attachSwDisk(config, mainClass.bastion, mainClass.volumeApi,
@@ -813,7 +916,7 @@ public class MainClass implements Closeable
             /*if(cmd[0].equals("-cc.a"))
                 ClientProcedures.clusterServerGroupCreate(config, mainClass.userName, mainClass.password);
             else*/ if(cmd[0].equals("-cc.b"))
-                ClientProcedures.createClusterVarsFile(config, mainClass.tempFolder);
+                ClientProcedures.prepareToolComponents(config, mainClass.tempFolder, mainClass.flavorApi, true);
 //            else if(cmd[0].equals("-cc.c"))
 //                ClientProcedures.updateAmbariShellCommandFile(config);
 //            else if(cmd[0].equals("-cc.d"))
@@ -831,7 +934,7 @@ public class MainClass implements Closeable
                         Utils.getServerPublicIp(mainClass.getMasterReference(config.getClusterName()), config.getNetworkName()));
             else if(cmd[0].equals("-cc.i"))
             {
-                ClientProcedures.updateInstallationBashScripts(mainClass.ssh, config, mainClass.bastion,
+                ClientProcedures.transferSwBashScripts(mainClass.ssh, config, mainClass.bastion,
                         mainClass.bastion, true, mainClass.volumeApi, mainClass.volumeAttachmentApi);
             }
             else if(cmd[0].equals("-cc.j"))

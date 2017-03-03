@@ -4,6 +4,8 @@
 
 source ~/_init.sh
 
+source ~/_disablePasswordAuth.sh
+
 if [ "$1" == "test" ]; then
     SCRIPT="$2"
     . start-all.sh
@@ -38,6 +40,7 @@ sudo chmod 777 -R $SW_DIR/*
 >| $SPARK_HOME/conf/slaves
 for name in "${WORKER_HOSTS[@]}"; do
     echo "$name" >> $SPARK_HOME/conf/slaves
+    ssh -n -o StrictHostKeyChecking=no cloud-user@$name 'bash -s' < ~/_disablePasswordAuth.sh
 done
 cat $SPARK_HOME/conf/slaves
 

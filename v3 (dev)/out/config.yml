@@ -42,16 +42,24 @@ ioHddSsdNodes:
   # (SDD volume is defined in the name of an io-flavor)
   hddVolumeSize: 50
 
+# SPARK CONFIGURATION VARIABLES: These values are meant to take effect only when running "create-*" command.
+# Changing them when cluster already exists is not recommended.
+# The first 4 values: if set to 0, then the value is set according to the Flavor configuration.
+sparkMasterVmCores: 0
+sparkMasterVmRam: 29
+sparkWorkerVmCores: 0
+sparkWorkerVmRam: 240
+# This value must be non-zero.
+sparkExecutorCores: 8
 
-
-
-# THESE 4 ARE REQUIRED FOR META-pipe EXECUTION:
+# THESE ARE REQUIRED FOR META-pipe EXECUTION:
+swJobTag: csc-A
 swArtifactsOnline: true
 swArtifactsUsername: 
 swArtifactsPassword: 
 swArtifactsLinks:
-  - https://artifacts.sfb.uit.no/jenkins/newpan_tools/34/workflow-assembly-0.1-SNAPSHOT.jar
-  - https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/12/metapipe-dependencies.tar.gz
+  - https://artifacts.sfb.uit.no/jenkins/newpan_tools/37/workflow-assembly-0.1-SNAPSHOT.jar
+  - https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/13/metapipe-dependencies.tar.gz
 
 
 
@@ -68,7 +76,7 @@ ipAdmins:
   - 129.242.158.200
 
 swDiskName: pipe-SW
-swDiskSize: 150
+swDiskSize: 200
 
 ipCheck: http://checkip.amazonaws.com
 
@@ -84,28 +92,32 @@ clusterKeyFileName: id_rsa_csc_cluster
 imageDefault: CentOS-7.0
 
 # This 4 variables are set by the tool
-bastionFloatingIpId: 
+bastionFloatingIpId:
 securityGroupId:
 serverGroupId:
-swDiskID: 
-
+swDiskID:
 
 xternFiles:
   ansibleScript: pouta-ansible-cluster
   clusterTestScript: cluster_test.py
   thisJar: Metapipe-cPouta.jar
   config: config.yml
+  disablePasswordAuth: _disablePasswordAuth.sh
   ansibleClusterVars: cluster_vars.yaml
   ansibleClusterVarsTemplate: cluster_vars.yaml.template
-  installation: installation_files
+  sw: sw_files
   diskHelper: _disk.sh
-  clusterSwSetupScript: _setup_cluster.sh
-  clusterSwSetupScriptInit: _init.sh
+  sparkSetupScript: _setup_cluster.sh
+  sparkSetupScriptInit: _init.sh
 
-installationPrepareScript: _prepare.sh
-installationTestScript: _test.sh
-installationLaunchScript: _run.sh
-installationStopScript: _stop.sh
+swInitScript: _init.sh
+swPrepareScript: _prepare.sh
+swTestScript: _test.sh
+swLaunchScript: _run.sh
+swStopScript: _stop.sh
+swExecutable: workflow-assembly-0.1-SNAPSHOT.jar
 
-installationPackedLocation: sw-packed
-installationUnpackedLocation: /export/share
+# META-pipe folder name on SW-Disk
+swOnDiskFolderName: sw-packed
+# META-pipe location on cluster, the NFS shared dir
+swClusterLocation: /export/share

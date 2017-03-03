@@ -1,7 +1,6 @@
 package no.uit.metapipe.cpouta;
 
 import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.events.StreamEndEvent;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,22 +53,31 @@ public final class Configuration
 
     private String imageDefault;
 
-    private String installationPrepareScript;
-    private String installationTestScript;
-    private String installationLaunchScript;
-    private String installationStopScript;
+    private String swInitScript;
+    private String swPrepareScript;
+    private String swTestScript;
+    private String swLaunchScript;
+    private String swStopScript;
+    private String swExecutable;
 
-    private String installationPackedLocation;
-    private String installationUnpackedLocation;
+    private String swOnDiskFolderName;
+    private String swClusterLocation;
 
     private String swDiskName;
     private int swDiskSize;
     private String swDiskID;
 
+    private String swJobTag;
     private boolean swArtifactsOnline;
     private String swArtifactsUsername;
     private String swArtifactsPassword;
     private List<String> swArtifactsLinks;
+
+    private int sparkMasterVmCores;
+    private int sparkMasterVmRam;
+    private int sparkWorkerVmCores;
+    private int sparkWorkerVmRam;
+    private int sparkExecutorCores;
 
     static String errorMessagePrefix = "ERROR detected in 'config.yml'! Check the correctness of: ";
 
@@ -213,7 +221,7 @@ public final class Configuration
             serverGroupId = "";
         }
         this.serverGroupId = serverGroupId;
-        Utils.updateFileValue("config.yml", "serverGroupId", serverGroupId);
+        Utils.updateYamlFileValue("config.yml", "serverGroupId", serverGroupId);
     }
 
     public Map<String, String> getXternFiles()
@@ -279,7 +287,7 @@ public final class Configuration
             securityGroupId = "";
         }
         this.securityGroupId = securityGroupId;
-        Utils.updateFileValue("config.yml", "securityGroupId", securityGroupId);
+        Utils.updateYamlFileValue("config.yml", "securityGroupId", securityGroupId);
     }
 
     public String getBastionFloatingIpId()
@@ -299,7 +307,7 @@ public final class Configuration
             bastionFloatingIpId = "";
         }
         this.bastionFloatingIpId = bastionFloatingIpId;
-        Utils.updateFileValue("config.yml", "bastionFloatingIpId", bastionFloatingIpId);
+        Utils.updateYamlFileValue("config.yml", "bastionFloatingIpId", bastionFloatingIpId);
     }
 
     public List<String> getIpAdmins()
@@ -338,7 +346,7 @@ public final class Configuration
             if(s != null && !s.isEmpty() && this.ipAdmins.contains(s))
             {
                 this.ipAdmins.remove(s);
-                Utils.updateFileValue("config.yml", s, null);
+                Utils.updateYamlFileValue("config.yml", s, null);
             }
         }
     }
@@ -363,14 +371,15 @@ public final class Configuration
         this.regularHddNodes = (Map<String, String>)Utils.objectValidate(regularHddNodes, errorMessagePrefix + "regularHddNodes");
         if(this.getNodeGroups().contains("regularHddNodes"))
         {
-            Utils.stringValidate(this.regularHddNodes.get("numNodes"), errorMessagePrefix + "ioHddSsdNodes numNodes");
+            Utils.stringValidate(this.regularHddNodes.get("numNodes"), errorMessagePrefix + "regularHddNodes numNodes");
+            Utils.stringValidate(this.regularHddNodes.get("volumeSize"), errorMessagePrefix + "regularHddNodes volumeSize");
         }
         else
         {
             this.regularHddNodes.put("numNodes", "0");
+            this.regularHddNodes.put("volumeSize", "0");
         }
         Utils.stringValidate(this.regularHddNodes.get("flavor"), errorMessagePrefix + "regularHddNodes flavor");
-        Utils.stringValidate(this.regularHddNodes.get("volumeSize"), errorMessagePrefix + "regularHddNodes volumeSize");
     }
 
     public Map<String, String> getIoHddSsdNodes()
@@ -384,13 +393,14 @@ public final class Configuration
         if(this.getNodeGroups().contains("ioHddSsdNodes"))
         {
             Utils.stringValidate(this.ioHddSsdNodes.get("numNodes"), errorMessagePrefix + "ioHddSsdNodes numNodes");
+            Utils.stringValidate(this.ioHddSsdNodes.get("hddVolumeSize"), errorMessagePrefix + "ioHddSsdNodes hddVolumeSize");
         }
         else
         {
             this.ioHddSsdNodes.put("numNodes", "0");
+            this.regularHddNodes.put("hddVolumeSize", "0");
         }
         Utils.stringValidate(this.ioHddSsdNodes.get("flavor"), errorMessagePrefix + "ioHddSsdNodes flavor");
-        Utils.stringValidate(this.ioHddSsdNodes.get("hddVolumeSize"), errorMessagePrefix + "ioHddSsdNodes hddVolumeSize");
     }
 
     public List<String> getNodeGroups()
@@ -426,70 +436,92 @@ public final class Configuration
         this.imageDefault = Utils.stringValidate(imageDefault, errorMessagePrefix + "imageDefault");
     }
 
-    public String getInstallationPrepareScript()
+    public String getSwInitScript()
     {
-        return installationPrepareScript;
+        return swInitScript;
     }
 
-    public void setInstallationPrepareScript(String installationPrepareScript)
+    public void setSwInitScript(String swInitScript)
     {
-        this.installationPrepareScript =
-                Utils.stringValidate(installationPrepareScript, errorMessagePrefix + "installationPrepareScript");
+        this.swInitScript =
+                Utils.stringValidate(swInitScript, errorMessagePrefix + "swInitScript");
     }
 
-    public String getInstallationTestScript()
+    public String getSwPrepareScript()
     {
-        return installationTestScript;
+        return swPrepareScript;
     }
 
-    public void setInstallationTestScript(String installationTestScript)
+    public void setSwPrepareScript(String swPrepareScript)
     {
-        this.installationTestScript =
-                Utils.stringValidate(installationTestScript, errorMessagePrefix + "installationTestScript");
+        this.swPrepareScript =
+                Utils.stringValidate(swPrepareScript, errorMessagePrefix + "swPrepareScript");
     }
 
-    public String getInstallationLaunchScript()
+    public String getSwTestScript()
     {
-        return installationLaunchScript;
+        return swTestScript;
     }
 
-    public void setInstallationLaunchScript(String installationLaunchScript)
+    public void setSwTestScript(String swTestScript)
     {
-        this.installationLaunchScript =
-                Utils.stringValidate(installationLaunchScript, errorMessagePrefix + "installationLaunchScript");
+        this.swTestScript =
+                Utils.stringValidate(swTestScript, errorMessagePrefix + "swTestScript");
     }
 
-    public String getInstallationStopScript()
+    public String getSwLaunchScript()
     {
-        return installationStopScript;
+        return swLaunchScript;
     }
 
-    public void setInstallationStopScript(String installationStopScript)
+    public void setSwLaunchScript(String swLaunchScript)
     {
-        this.installationStopScript =
-                Utils.stringValidate(installationStopScript, errorMessagePrefix + "installationStopScript");
+        this.swLaunchScript =
+                Utils.stringValidate(swLaunchScript, errorMessagePrefix + "swLaunchScript");
     }
 
-    public String getInstallationPackedLocation()
+    public String getSwStopScript()
     {
-        return installationPackedLocation;
+        return swStopScript;
     }
 
-    public void setInstallationPackedLocation(String installationPackedLocation)
+    public void setSwStopScript(String swStopScript)
     {
-        this.installationPackedLocation =
-                Utils.stringValidate(installationPackedLocation, errorMessagePrefix + "installationPackedLocation");
+        this.swStopScript =
+                Utils.stringValidate(swStopScript, errorMessagePrefix + "swStopScript");
     }
 
-    public String getInstallationUnpackedLocation()
+    public String getSwExecutable()
     {
-        return installationUnpackedLocation;
+        return swExecutable;
     }
 
-    public void setInstallationUnpackedLocation(String installationUnpackedLocation)
+    public void setSwExecutable(String swExecutable)
     {
-        this.installationUnpackedLocation =
-            Utils.stringValidate(installationUnpackedLocation, errorMessagePrefix + "installationUnpackedLocation");
+        this.swExecutable =
+                Utils.stringValidate(swExecutable, errorMessagePrefix + "swExecutable");;
+    }
+
+    public String getSwOnDiskFolderName()
+    {
+        return swOnDiskFolderName;
+    }
+
+    public void setSwOnDiskFolderName(String swOnDiskFolderName)
+    {
+        this.swOnDiskFolderName =
+                Utils.stringValidate(swOnDiskFolderName, errorMessagePrefix + "swOnDiskFolderName");
+    }
+
+    public String getSwClusterLocation()
+    {
+        return swClusterLocation;
+    }
+
+    public void setSwClusterLocation(String swClusterLocation)
+    {
+        this.swClusterLocation =
+            Utils.stringValidate(swClusterLocation, errorMessagePrefix + "swClusterLocation");
     }
 
     public String getSwDiskName()
@@ -509,7 +541,7 @@ public final class Configuration
 
     public void setSwDiskSize(int swDiskSize)
     {
-        this.swDiskSize = Utils.nonZeroIntValidate(swDiskSize, errorMessagePrefix + "swDiskSize");
+        this.swDiskSize = Utils.intValidate(swDiskSize, errorMessagePrefix + "swDiskSize", false);
     }
 
     public String getSwDiskID()
@@ -529,7 +561,7 @@ public final class Configuration
             swDiskID = "";
         }
         this.swDiskID = swDiskID;
-        Utils.updateFileValue("config.yml", "swDiskID", swDiskID);
+        Utils.updateYamlFileValue("config.yml", "swDiskID", swDiskID);
     }
 
     public boolean isSwArtifactsOnline()
@@ -599,5 +631,65 @@ public final class Configuration
         }
 
 
+    }
+
+    public String getSwJobTag()
+    {
+        return swJobTag;
+    }
+
+    public void setSwJobTag(String swJobTag)
+    {
+        this.swJobTag = Utils.stringValidate(swJobTag, errorMessagePrefix + "swJobTag");;
+    }
+
+    public int getSparkMasterVmCores()
+    {
+        return sparkMasterVmCores;
+    }
+
+    public void setSparkMasterVmCores(int sparkMasterVmCores)
+    {
+        this.sparkMasterVmCores = Utils.intValidate(sparkMasterVmCores, errorMessagePrefix + "sparkMasterVmCores", true);
+    }
+
+    public int getSparkMasterVmRam()
+    {
+        return sparkMasterVmRam;
+    }
+
+    public void setSparkMasterVmRam(int sparkMasterVmRam)
+    {
+        this.sparkMasterVmRam = Utils.intValidate(sparkMasterVmRam, errorMessagePrefix + "sparkMasterVmRam", true);
+    }
+
+    public int getSparkWorkerVmCores()
+    {
+        return sparkWorkerVmCores;
+    }
+
+    public void setSparkWorkerVmCores(int sparkWorkerVmCores)
+    {
+        this.sparkWorkerVmCores = Utils.intValidate(sparkWorkerVmCores, errorMessagePrefix + "sparkWorkerVmCores", true);
+    }
+
+    public int getSparkWorkerVmRam()
+    {
+        return sparkWorkerVmRam;
+    }
+
+    public void setSparkWorkerVmRam(int sparkWorkerVmRam)
+    {
+        this.sparkWorkerVmRam = Utils.intValidate(sparkWorkerVmRam, errorMessagePrefix + "sparkWorkerVmRam", true);
+    }
+
+    public int getSparkExecutorCores()
+    {
+        return sparkExecutorCores;
+    }
+
+    public void setSparkExecutorCores(int sparkExecutorCores)
+    {
+        this.sparkExecutorCores = Utils.intValidate(sparkExecutorCores, errorMessagePrefix + "sparkExecutorCores", false);
     }
 }

@@ -1,8 +1,12 @@
 package no.uit.metapipe.cpouta;
 
+import com.google.common.collect.ImmutableList;
 import com.jcraft.jsch.*;
 import com.jcraft.jsch.KeyPair;
+import org.jclouds.collect.IterableWithMarker;
 import org.jclouds.openstack.nova.v2_0.domain.*;
+import org.jclouds.openstack.nova.v2_0.features.FlavorApi;
+import org.jclouds.openstack.v2_0.domain.Resource;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -290,21 +294,23 @@ final class Utils
     }
 
     // newValue = null: for removing the line with the value
-    static void updateFileValue(String filePath, String valueName, String newValue)
+    static void updateFileValue(String filePath, String valueName, String newValue, String separatedBy, boolean firstOnly)
     {
         try
         {
             List<String> lines;
             List<String> newLines = new ArrayList<String>();
             File f = new File(filePath);
+            int replacedCount = 0;
             lines = Files.readAllLines(f.toPath(), Charset.defaultCharset());
             for(String line: lines)
             {
-                if(line.contains(valueName))
+                if(line.contains(valueName) && !(firstOnly && replacedCount > 0))
                 {
                     if(newValue != null)
                     {
-                        newLines.add(updateFileLine(line, valueName, newValue));
+                        newLines.add(updateFileLine(line, valueName, newValue, separatedBy));
+                        replacedCount++;
                     }
                 }
                 else
@@ -317,7 +323,7 @@ final class Utils
                 newValue = "";
             }
             Files.write(f.toPath(), newLines, Charset.defaultCharset());
-            System.out.println("Config file updated: '" + valueName + "' changed to '" + newValue + "'.");
+            System.out.println("File '" + filePath + "' updated: '" + valueName + "' changed to '" + newValue + "'.");
         }
         catch (IOException e)
         {
@@ -325,9 +331,19 @@ final class Utils
         }
     }
 
-    static String updateFileLine(String line, String valueName, String newValue)
+    static void updateYamlFileValue(String filePath, String valueName, String newValue)
     {
-        return line.substring(0, line.indexOf(valueName)) + valueName + ": " + String.valueOf(newValue);
+        updateFileValue(filePath, valueName, newValue, ": ", false);
+    }
+
+    static String updateFileLine(String line, String valueName, String newValue, String separatedBy)
+    {
+        return line.substring(0, line.indexOf(valueName)) + valueName + separatedBy + String.valueOf(newValue);
+    }
+
+    static String updateYamlFileLine(String line, String valueName, String newValue)
+    {
+        return updateFileLine(line, valueName, newValue, ": ");
     }
 
     static void addNewListFileEntry(String filePath, String list, String newEntry)
@@ -369,10 +385,6 @@ final class Utils
         {
             return object != null && !((List) object).isEmpty();
         }
-        else if(object instanceof Integer)
-        {
-            return object != null && ((Integer) object) != 0;
-        }
         else
         {
             return object != null;
@@ -383,11 +395,15 @@ final class Utils
     {
         if(!objectHasContents(object))
         {
-            //throw new IllegalStateException(errorMessage);
-            System.out.println("\n" + errorMessage + "\n");
-            exit(1);
+            objectInvalidAction(errorMessage);
         }
         return object;
+    }
+
+    static void objectInvalidAction(String errorMessage)
+    {
+        System.out.println("\n" + errorMessage + "\n");
+        exit(1);
     }
 
     static String stringValidate(String object, String errorMessage)
@@ -395,9 +411,17 @@ final class Utils
         return (String)objectValidate(object, errorMessage);
     }
 
-    static Integer nonZeroIntValidate(Integer object, String errorMessage)
+    static Integer intValidate(Integer object, String errorMessage, boolean canBeZero)
     {
-        return (Integer)objectValidate(object, errorMessage);
+        if(canBeZero)
+        {
+            return (Integer)objectValidate(object, errorMessage);
+        }
+        if(object == 0)
+        {
+            objectInvalidAction(errorMessage);
+        }
+        return object;
     }
 
     static void createNewKeyPair(String keyName, String path, JSch ssh)
@@ -437,6 +461,18 @@ final class Utils
                 exit(1);
             }
         }
+    }
+
+    static Flavor getFlavorByName(FlavorApi flavorApi, String name)
+    {
+        for(Resource f : flavorApi.list().get(0))
+        {
+            if(f.getName().equals(name))
+            {
+                return  flavorApi.get(f.getId());
+            }
+        }
+        return null;
     }
 
 }

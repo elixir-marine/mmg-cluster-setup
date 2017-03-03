@@ -8,7 +8,6 @@ import com.jcraft.jsch.KeyPair;
 import org.codehaus.plexus.archiver.ArchiverException;
 import org.codehaus.plexus.archiver.tar.TarArchiver;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
-import org.jclouds.http.HttpResponseException;
 import org.jclouds.net.domain.IpProtocol;
 import org.jclouds.openstack.nova.v2_0.domain.*;
 import org.jclouds.openstack.nova.v2_0.extensions.*;
@@ -22,7 +21,6 @@ import org.jclouds.openstack.nova.v2_0.options.CreateVolumeOptions;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -119,7 +117,7 @@ class ClientProcedures
         }
     }
 
-    static Server bastionServerCreate(ServerApi serverApi, ImageApi imageApi, FlavorApi flavorApi, Configuration config)
+    static Server bastionServerCreate(ServerApi serverApi, ImageApi imageApi, FlavorApi flavorApi, Configuration config, JSch ssh)
     {
         System.out.println("Start creating bastion server.");
         ImmutableList<Server> tempServerList = serverApi.listInDetail().get(0).toList();
@@ -203,6 +201,36 @@ class ClientProcedures
             System.out.println(s);
         }
         return serverApi.get(bastionCreated.getId());
+    }
+
+    static void disablePasswordAuth(JSch ssh, Configuration config, Server server)
+    {
+        System.out.println("Start disabling password auth on " + server.getName() + " ...");
+        String commands = "source " + Utils.getFileNameFromPath(config.getXternFiles().get("disablePasswordAuth")) + " 2>&1;";
+        if(server != null)
+        {
+            String ip = null;
+            if(server.getName().equals(config.getBastionMachineName()))
+            {
+                ip = Utils.getServerPublicIp(server, config.getNetworkName());
+            }
+            else if(server.getName().contains(config.getClusterName() + "-master"))
+            {
+                ip = Utils.getServerPrivateIp(server, config.getNetworkName());
+            }
+            else
+            {
+                System.out.println("Unexpected error!");
+                exit(-1);
+            }
+            Utils.sshExecutor(ssh, config.getUserName(), ip, commands);
+        }
+        else
+        {
+            System.out.println("Not possible to complete, the provided server (" + server.getName() + ") is null!");
+            return;
+        }
+        System.out.println("Password auth on " + server.getName() + " disabled.");
     }
 
     static void bastionIpAllocate(Configuration config, FloatingIPApi floatingIPApi, Server bastion)
@@ -495,6 +523,95 @@ class ClientProcedures
 //        }
 //    }
 
+    static void prepareToolComponents(Configuration config, String tempFolder, FlavorApi flavorApi, boolean all)
+    {
+        System.out.println("\nUpdating tool components according to the config...");
+        Utils.updateFileValue(
+                Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
+                "METAPIPE_JOB_TAG",
+                "\"" + config.getSwJobTag() + "\"",
+                "=",
+                true);
+        Utils.updateFileValue(
+                Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
+                "METAPIPE_EXECUTABLE",
+                "\"" + config.getSwExecutable() + "\"",
+                "=",
+                true);
+        Utils.updateFileValue(
+                Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
+                "METAPIPE_ON_SWDISK_DIR_NAME",
+                "\"" + config.getSwOnDiskFolderName() + "\"",
+                "=",
+                true);
+        if(all)
+        {
+            int newVal;
+            Flavor tempFlavor;
+
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "SW_DIR",
+                    config.getSwClusterLocation(),
+                    "=",
+                    true);
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "CLUSTER_NAME",
+                    "\"" + config.getClusterName() + "\"",
+                    "=",
+                    true);
+
+            newVal = (config.getSparkMasterVmCores() == 0) ?
+                    Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getVcpus() :
+                    config.getSparkMasterVmCores();
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "CORES_MASTER",
+                    Integer.toString(newVal),
+                    "=",
+                    true);
+            newVal = (config.getSparkMasterVmRam() == 0) ?
+                    Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getRam() :
+                    config.getSparkMasterVmRam();
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "RAM_MASTER",
+                    Integer.toString(newVal),
+                    "=",
+                    true);
+            if(config.getIoHddSsdNodes().get("numNodes").equals("0"))
+            {
+                tempFlavor = Utils.getFlavorByName(flavorApi, config.getRegularHddNodes().get("flavor"));
+            }
+            else
+            {
+                tempFlavor = Utils.getFlavorByName(flavorApi, config.getIoHddSsdNodes().get("flavor"));
+            }
+            newVal = (config.getSparkWorkerVmCores() == 0) ? tempFlavor.getVcpus() : config.getSparkWorkerVmCores();
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "CORES_PER_SLAVE",
+                    Integer.toString(newVal),
+                    "=",
+                    true);
+            newVal = (config.getSparkWorkerVmRam() == 0) ? tempFlavor.getRam() : config.getSparkWorkerVmRam();
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "RAM_PER_SLAVE",
+                    Integer.toString(newVal),
+                    "=",
+                    true);
+            Utils.updateFileValue(
+                    Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                    "CORES_PER_EXECUTOR",
+                    Integer.toString(config.getSparkExecutorCores()),
+                    "=",
+                    true);
+            createClusterVarsFile(config, tempFolder);
+        }
+        System.out.println("Tool components modified.\n");
+    }
 
     static void createClusterVarsFile(Configuration config, String tempFolder)
     {
@@ -515,22 +632,22 @@ class ClientProcedures
                 line = lines.get(i);
                 if(line.contains("cluster_name:"))
                 {
-                    newLines.add(Utils.updateFileLine(line, "cluster_name", config.getClusterName()));
+                    newLines.add(Utils.updateYamlFileLine(line, "cluster_name", config.getClusterName()));
                     i++;
                 }
                 else if(line.contains("network_name:"))
                 {
-                    newLines.add(Utils.updateFileLine(line, "network_name", config.getNetworkName()));
+                    newLines.add(Utils.updateYamlFileLine(line, "network_name", config.getNetworkName()));
                     i++;
                 }
                 else if(line.contains("ssh_key:"))
                 {
-                    newLines.add(Utils.updateFileLine(line, "ssh_key", config.getClusterKeyName()));
+                    newLines.add(Utils.updateYamlFileLine(line, "ssh_key", config.getClusterKeyName()));
                     i++;
                 }
                 else if(line.contains("bastion_secgroup:"))
                 {
-                    newLines.add(Utils.updateFileLine(line, "bastion_secgroup", config.getBastionSecGroupName()));
+                    newLines.add(Utils.updateYamlFileLine(line, "bastion_secgroup", config.getBastionSecGroupName()));
                     i++;
                 }
                 else if(line.contains("master:"))
@@ -541,26 +658,26 @@ class ClientProcedures
                         line = lines.get(j);
                         if(line.contains("flavor:"))
                         {
-                            newLines.add(Utils.updateFileLine(line, "flavor", config.getMaster().get("flavor")));
+                            newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getMaster().get("flavor")));
                             j++;
                         }
                         else if(line.contains("image:"))
                         {
-                            newLines.add(Utils.updateFileLine(line, "image", config.getImageDefault()));
+                            newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
                             j++;
                         }
                         else if(line.contains("name: metadata"))
                         {
                             newLines.add(line);
                             line = lines.get(j+1);
-                            newLines.add(Utils.updateFileLine(line, "size", config.getMaster().get("metadataVolumeSize")));
+                            newLines.add(Utils.updateYamlFileLine(line, "size", config.getMaster().get("metadataVolumeSize")));
                             j = lines.indexOf(line) + 1;
                         }
                         else if(line.contains("name: nfs_share"))
                         {
                             newLines.add(line);
                             line = lines.get(j+1);
-                            newLines.add(Utils.updateFileLine(line, "size", config.getMaster().get("nfsVolumeSize")));
+                            newLines.add(Utils.updateYamlFileLine(line, "size", config.getMaster().get("nfsVolumeSize")));
                             i = lines.indexOf(line) + 1;
                             break;
                         }
@@ -594,21 +711,21 @@ class ClientProcedures
                             line = lines.get(j);
                             if(line.contains("flavor:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "flavor", config.getRegularHddNodes().get("flavor")));
+                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getRegularHddNodes().get("flavor")));
                             }
                             else if(line.contains("image:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "image", config.getImageDefault()));
+                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
                             }
                             else if(line.contains("num_vms:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "num_vms", config.getRegularHddNodes().get("numNodes")));
+                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getRegularHddNodes().get("numNodes")));
                             }
                             else if(line.contains("name: datavol"))
                             {
                                 newLines.add(line);
                                 line = lines.get(++j);
-                                newLines.add(Utils.updateFileLine(line, "size", config.getRegularHddNodes().get("volumeSize")));
+                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getRegularHddNodes().get("volumeSize")));
                                 break;
                             }
                             else
@@ -633,21 +750,21 @@ class ClientProcedures
                             line = lines.get(j);
                             if(line.contains("flavor:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "flavor", config.getIoHddSsdNodes().get("flavor")));
+                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getIoHddSsdNodes().get("flavor")));
                             }
                             else if(line.contains("image:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "image", config.getImageDefault()));
+                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
                             }
                             else if(line.contains("num_vms:"))
                             {
-                                newLines.add(Utils.updateFileLine(line, "num_vms", config.getIoHddSsdNodes().get("numNodes")));
+                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getIoHddSsdNodes().get("numNodes")));
                             }
                             else if(line.contains("name: datavol"))
                             {
                                 newLines.add(line);
                                 line = lines.get(++j);
-                                newLines.add(Utils.updateFileLine(line, "size", config.getIoHddSsdNodes().get("hddVolumeSize")));
+                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getIoHddSsdNodes().get("hddVolumeSize")));
                                 break;
                             }
                             else
@@ -755,8 +872,8 @@ class ClientProcedures
                 "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("config")) + ";" +
                 "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")) + ";" +
                 "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVarsTemplate")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("clusterSwSetupScript")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("clusterSwSetupScriptInit")) + ";";
+                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScript")) + ";" +
+                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")) + ";";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         File arc = new File(tempFolder + "/arc.tar");
         DefaultFileSet fs = new DefaultFileSet();
@@ -766,8 +883,8 @@ class ClientProcedures
         }
         fs.setDirectory(new File("."));
         fs.setExcludes(new String[]{tempFolder + "/*", tempFolder});
-        fs.setExcludes(new String[]{Utils.getFileNameFromPath(config.getXternFiles().get("installation")) + "/*",
-                Utils.getFileNameFromPath(config.getXternFiles().get("installation"))});
+        fs.setExcludes(new String[]{Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/*",
+                Utils.getFileNameFromPath(config.getXternFiles().get("sw"))});
         fs.setIncludingEmptyDirectories(true);
         aTar.addFileSet(fs);
         try
@@ -792,10 +909,10 @@ class ClientProcedures
         System.out.println("Required files are transferred to Bastion.");
     }
 
-    static void updateInstallationBashScripts(JSch ssh, Configuration config, Server bastion, Server server,
-                                              boolean bastion1master0, VolumeApi volumeApi, VolumeAttachmentApi volumeAttachmentApi)
+    static void transferSwBashScripts(JSch ssh, Configuration config, Server bastion, Server server,
+                                      boolean bastion1master0, VolumeApi volumeApi, VolumeAttachmentApi volumeAttachmentApi)
     {
-        System.out.println("Updating installation scripts on " + server.getName() + "...");
+        System.out.println("Updating SW scripts on " + server.getName() + "...");
         String commands = "";
         String ip;
         String src;
@@ -805,15 +922,15 @@ class ClientProcedures
         {
             mountSwDisk(ssh, config, bastion);
             ip = Utils.getServerPublicIp(server, config.getNetworkName());
-            dest = "/media/" + config.getSwDiskName() + "/" + config.getInstallationPackedLocation();
-            src = Utils.getFileNameFromPath(config.getXternFiles().get("installation"));
+            dest = "/media/" + config.getSwDiskName() + "/" + config.getSwOnDiskFolderName();
+            src = Utils.getFileNameFromPath(config.getXternFiles().get("sw"));
         }
         else
         {
             mountSwDisk(ssh, config, null);
             ip = Utils.getServerPrivateIp(server, config.getNetworkName());
-            dest = config.getInstallationUnpackedLocation();
-            src = "/media/" + config.getSwDiskName() + "/" + config.getInstallationPackedLocation();
+            dest = config.getSwClusterLocation();
+            src = "/media/" + config.getSwDiskName() + "/" + config.getSwOnDiskFolderName();
         }
         commands += "sudo rm -r " + dest + "/*.sh;";
         Utils.sshExecutor(ssh, config.getUserName(), ip, commands);
@@ -838,7 +955,7 @@ class ClientProcedures
         detachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
         commands = "sudo chmod 777 " + dest + "/*.sh;";
         Utils.sshExecutor(ssh, config.getUserName(), ip, commands);
-        System.out.println("Installation scripts are updated on " + server.getName());
+        System.out.println("SW scripts are updated on " + server.getName());
     }
 
     static void bastionClusterProvisionExecute(JSch ssh, Configuration config, Server bastion, String authCommands)
@@ -880,20 +997,31 @@ class ClientProcedures
         System.out.println("Cluster configuration routine on Bastion is finished.");
     }
 
-    static void createDisk4SW(JSch ssh, Configuration config, VolumeApi volumeApi, Server bastion,
-                              VolumeAttachmentApi volumeAttachmentApi)
+    static boolean swDiskExists(Configuration config, VolumeApi volumeApi)
     {
-        System.out.println("Started creating installation storage...");
-        Volume vol;
-        String commands;
         for(Volume v : volumeApi.listInDetail())
         {
             if(v.getName().equals(config.getSwDiskName()))
             {
-                System.out.println("Volume with the name " + config.getSwDiskName() + " already exists. " +
-                        "If it is a mistake, check the name in config.yml and rerun the tool.");
-                return;
+                System.out.println("swDiskExists: true.");
+                return true;
             }
+        }
+        System.out.println("swDiskExists: false.");
+        return false;
+    }
+
+    static void createSwDisk(JSch ssh, Configuration config, VolumeApi volumeApi, Server bastion,
+                             VolumeAttachmentApi volumeAttachmentApi)
+    {
+        System.out.println("Started creating SW storage...");
+        Volume vol;
+        String commands;
+        if(swDiskExists(config, volumeApi))
+        {
+            System.out.println("Volume with the name " + config.getSwDiskName() + " already exists. " +
+                    "If it is a mistake, check the name in config.yml and rerun the tool.");
+            return;
         }
         vol = volumeApi.create(config.getSwDiskSize(),
                 CreateVolumeOptions.Builder.name(config.getSwDiskName()).availabilityZone(config.getBastionAvailZone()));
@@ -915,7 +1043,18 @@ class ClientProcedures
                 " " + config.getSwDiskID() + " create " + config.getSwDiskName() + ";";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         detachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
-        System.out.println("Finished creating installation storage with the name '" + config.getSwDiskName() + "'.");
+        System.out.println("Finished creating SW storage with the name '" + config.getSwDiskName() + "'.");
+    }
+
+    static boolean isAttachedSwDisk(Configuration config, Server server, VolumeAttachmentApi volumeAttachmentApi)
+    {
+        if(volumeAttachmentApi.getAttachmentForVolumeOnServer(config.getSwDiskID(), server.getId()) != null)
+        {
+            System.out.println("isAttachedSwDisk: Disk is attached to " + server.getName());
+            return true;
+        }
+        System.out.println("isAttachedSwDisk: Disk is not attached to " + server.getName());
+        return false;
     }
 
     static VolumeAttachment attachSwDisk(Configuration config, Server server, VolumeApi volumeApi,
@@ -923,9 +1062,8 @@ class ClientProcedures
     {
         System.out.println("Attaching swDisk to " + server.getName() + "...");
         VolumeAttachment va;
-        if(volumeAttachmentApi.getAttachmentForVolumeOnServer(config.getSwDiskID(), server.getId()) != null)
+        if(isAttachedSwDisk(config, server, volumeAttachmentApi))
         {
-            System.out.println("Disk is already attached to " + server.getName());
             return null;
         }
         va = volumeAttachmentApi.attachVolumeToServerAsDevice(config.getSwDiskID(), server.getId(), "/dev/vdx");
@@ -949,8 +1087,7 @@ class ClientProcedures
                                         VolumeAttachmentApi volumeAttachmentApi)
     {
         System.out.println("Detaching swDisk from " + server.getName() + "...");
-        VolumeAttachment va = volumeAttachmentApi.getAttachmentForVolumeOnServer(config.getSwDiskID(), server.getId());
-        if(va == null)
+        if(!isAttachedSwDisk(config, server, volumeAttachmentApi))
         {
             System.out.println("Disk is already detached from " + server.getName());
             return;
@@ -1028,10 +1165,10 @@ class ClientProcedures
     static void transferSwFiles2VDisk(JSch ssh, Configuration config, Server bastion, boolean replace)
     {
         String commands = "";
-        String swPath = "/media/" + config.getSwDiskName() + "/" + config.getInstallationPackedLocation();
+        String swPath = "/media/" + config.getSwDiskName() + "/" + config.getSwOnDiskFolderName();
         List<String> swFiles = new ArrayList<String>();
 
-        for(File f : new File(config.getXternFiles().get("installation")).listFiles())
+        for(File f : new File(config.getXternFiles().get("sw")).listFiles())
         {
             if(!config.isSwArtifactsOnline() || (config.isSwArtifactsOnline() && f.getName().endsWith(".sh")))
             {

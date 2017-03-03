@@ -85,10 +85,10 @@ class ClientProceduresRemoval
     static void removeDisk4SW(JSch ssh, Configuration config, VolumeApi volumeApi,
                               VolumeAttachmentApi volumeAttachmentApi, Server bastion)
     {
-        System.out.println("Started removing installation storage...");
+        System.out.println("Started removing SW storage...");
         if(!Utils.objectHasContents(config.getSwDiskID()) || volumeApi.get(config.getSwDiskID()) == null)
         {
-            System.out.println("Installation storage not found.");
+            System.out.println("SW storage not found.");
             config.setAndUpdateSwDiskID("");
             return;
         }
@@ -110,7 +110,7 @@ class ClientProceduresRemoval
             }
         }
         config.setAndUpdateSwDiskID("");
-        System.out.println("Installation storage successfully removed.");
+        System.out.println("SW storage successfully removed.");
     }
 
     static void removeBastion(Configuration config, ServerApi serverApi, FloatingIPApi floatingIPApi, Server bastion)
