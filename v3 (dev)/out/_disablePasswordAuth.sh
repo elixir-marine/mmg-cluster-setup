@@ -6,3 +6,4 @@ sudo bash -c 'grep -q "^[^#]*PasswordAuthentication" /etc/ssh/sshd_config && sed
 #sudo bash -c 'grep -q "^[^#]*UsePAM" /etc/ssh/sshd_config && sed -i "/^[^#]*UsePAM[[:space:]]yes/c\UsePAM no" /etc/ssh/sshd_config || echo "UsePAM no" >> /etc/ssh/sshd_config'
 
 sudo systemctl restart sshd
+
