@@ -3,9 +3,9 @@
 (THIS DOCUMENTATION NEEDS TO BE UPDATED,  
 The list of currently supported commands is shows when the tool is launched)
 
-Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi). Currently in development.
-
-Was tested on clean installation of Kubuntu 14.04/16.04, Ubuntu 12.04/14.04/16.04.
+Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).  
+Currently in development.  
+Was tested on clean installation of Kubuntu 14.04/16.04, Ubuntu 12.04/14.04/16.04.  
 
 Requirements:
 - Linux distribution. Preferably (K)Ubuntu, v12.04 or higher.
