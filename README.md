@@ -1,6 +1,7 @@
 # mmg-cluster-setup
 
-(THIS DOCUMENTATION NEEDS TO BE UPDATED, the list of currently supported commands is shows when the tool is launched)
+(THIS DOCUMENTATION NEEDS TO BE UPDATED,  
+The list of currently supported commands is shows when the tool is launched)
 
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi). Currently in development.
 
@@ -31,7 +32,7 @@ Current limitations / 2-be-done in the future:
 - Pipe software update command 2-be-done.
 - 1 Pipe job can run per time (on all available resources).
 
-Structure of the tool folder "v3":
+Structure of the tool folder "v4":
 - "out": Contains the tool executable and components.
   - "config.yml": The file to be edited by user. Important that it is set up correctly.
   - "Metapipe-cPouta.jar": the executable file.
