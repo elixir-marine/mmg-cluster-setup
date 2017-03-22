@@ -21,6 +21,7 @@ bastionSecGroupName: bastion-metapipe
 clusterName: csc-spark-cluster
 clusterKeyName: my_cluster_key
 
+# "nfsSwMainVolumeSize" = size of META-pipe + some extra gigabytes
 master:
   flavor: hpc-gen1.8core
   metadataVolumeSize: 100
