@@ -1,7 +1,7 @@
 # mmg-cluster-setup
 
 (THIS DOCUMENTATION NEEDS TO BE UPDATED,  
-The list of currently supported commands is shows when the tool is launched)
+The list of currently supported commands is shows when the tool is launched)  
 
 Program tool for setting up Metapipe on openstack-based cPouta (pouta.csc.fi).  
 Currently in development.  

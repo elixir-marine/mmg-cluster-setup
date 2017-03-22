@@ -1,0 +1,43 @@
+---
+#- set_fact: with_vol={{ volume_spec | default(none) }}
+#  when:
+#  - "{{ volume_spec.volume_id }}|default(none) is defined"
+#  - "{{ volume_spec.volume_id }}|default(none) is not none"
+
+#- name: create {{ volume_spec.name }} volumes for {{ vm_group_name }} VMs, using provided existing volume
+#  os_volume:
+#    display_name: "{{ cluster_name }}-{{ vm_group_name }}-{{ item }}-{{ volume_spec.name }}"
+#    size: "{{ volume_spec.size }}"
+#    volume: "{{ volume_spec.volume_id }}"
+#    state: present
+#    wait: yes
+#  with_sequence: count={{ vm_group.num_vms|default(0) }}
+#  async: 300
+#  register: async_volume_create
+#  when:
+#  - "{{ volume_spec.size }}|default(0) > 0"
+#  - "{{ volume_spec.volume_id }}|default(none) is defined"
+#  - "{{ volume_spec.volume_id }}|default(none) is not none"
+
+- name: create {{ volume_spec.name }} volumes for {{ vm_group_name }} VMs
+  os_volume:
+    display_name: "{{ cluster_name }}-{{ vm_group_name }}-{{ item }}-{{ volume_spec.name }}"
+    size: "{{ volume_spec.size }}"
+    state: present
+    wait: yes
+  with_sequence: count={{ vm_group.num_vms|default(1) }}
+  async: 300
+  register: async_volume_create
+#  when:
+#  - "{{ volume_spec.size }}|default(0) > 0"
+#  - "{{ volume_spec.volume_id }}|default(none) is not defined or {{ volume_spec.volume_id }}|default(none) is none"
+  when: "{{ volume_spec.size }}|default(0) > 0"
+
+- name: check volume create status
+  async_status: jid={{ item.ansible_job_id }}
+  register: job_result
+  until: job_result.finished
+  delay: 2
+  retries: 150
+  with_items: "{{ async_volume_create.results }}"
+  when: "{{ volume_spec.size }}|default(0) > 0"

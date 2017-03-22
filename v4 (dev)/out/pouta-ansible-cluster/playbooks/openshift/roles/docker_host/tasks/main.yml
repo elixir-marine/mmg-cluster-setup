@@ -1,0 +1,14 @@
+- name: disable auto-updates on Pouta (these can cause container restarts)
+  file: name=/etc/cron.daily/automatic_updates state=absent
+
+- name: upload custom docker storage configuration for docker-storage-setup
+  template:
+    src: etc/sysconfig/docker-storage-setup.j2
+    dest: /etc/sysconfig/docker-storage-setup
+    backup: True
+
+- name: install docker
+  yum: name=docker state=present
+
+- name: enable docker service
+  service: name=docker state=running enabled=yes

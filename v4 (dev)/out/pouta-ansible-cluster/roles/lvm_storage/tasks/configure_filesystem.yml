@@ -1,0 +1,57 @@
+- set_fact: vg_name=vg_{{ filesystem_spec.volume }}
+
+- set_fact: lv_name=lv_{{ filesystem_spec.name }}
+
+- set_fact: lv_path="/dev/{{ vg_name }}/{{ lv_name }}"
+
+- set_fact: is_swap="{{ filesystem_spec.fstype|default('') == 'swap' }}"
+
+- set_fact: format="{{ filesystem_spec.format|default(true) }}"
+
+- stat: path=lv_path
+  register: stat_lv_path
+
+- name: create logical volume for {{ vg_name }}/{{ lv_name }}
+  lvol:
+    vg: "{{ vg_name }}"
+    lv: "{{ lv_name }}"
+    size: "{{ filesystem_spec.size|default('99%VG') }}"
+  when: stat_lv_path.stat.exists == False and format
+
+- name: make sure {{ filesystem_spec.name }} mount path exists
+  file:
+    path: "{{ filesystem_spec.mount_path }}"
+    state: directory
+  when: filesystem_spec.mount_path is defined
+
+- name: format {{ filesystem_spec.name }}
+  filesystem:
+    fstype: "{{ filesystem_spec.fstype }}"
+    dev: "{{ lv_path }}"
+    opts: "-L {{ filesystem_spec.name }} {{ filesystem_spec.mkfs_opts|default('') }}"
+  when: not is_swap and format
+
+#- name: update partitions list (1)
+#  shell: /sbin/partprobe "{{ filesystem_spec.fs_path }}"
+#  when: not is_swap and not format
+#
+#- name: update partitions list (2)
+#  shell: /sbin/kpartx -u "{{ filesystem_spec.fs_path }}"
+#  when: not is_swap and not format
+
+#- name: register partition label {{ filesystem_spec.name }}
+#  shell: /sbin/e2label "{{ filesystem_spec.fs_path }}1" "{{ filesystem_spec.name }}"
+#  when: not is_swap and not format
+
+- name: mount {{ filesystem_spec.name }}
+  mount:
+    name: "{{ filesystem_spec.mount_path }}"
+    src: "LABEL={{ filesystem_spec.name }}"
+    fstype: "{{ filesystem_spec.fstype }}"
+    opts: "{{ filesystem_spec.mount_opts|default('defaults,rw') }}"
+    state: mounted
+  when: filesystem_spec.mount_path is defined
+
+- name: configure swap
+  include: configure_swap.yml
+  when: is_swap

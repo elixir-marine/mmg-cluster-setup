@@ -1,0 +1,78 @@
+# See cluster_vars.yaml.example-complex for more examples, comments and explanations
+
+cluster_name: "my-spark"
+ssh_key: "bastion-key"
+bastion_secgroup: "bastion"
+
+nfs_shares:
+  - directory: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#    export_options: "*(ro)"
+#    mount_options: "defaults"
+
+master:
+  inventory_group: masters
+  auto_ip: yes
+  flavor: "standard.large"
+  image: "image"
+  volumes:
+    - name: metadata
+      size: 100
+      pv_path: /dev/vdb
+    - name: nfs_sw_main
+      size: 100
+      pv_path: /dev/vdc
+      snapshot_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    - name: nfs_sw_tmp
+      size: 100
+      pv_path: /dev/vdd
+  filesystems:
+    - name: swap
+      volume: metadata
+      size: "2%VG"
+      fstype: swap
+    - name: hadoop
+      volume: metadata
+      mount_path: /hadoop
+      size: "97%VG"
+      fstype: xfs
+      mkfs_opts: ""
+    - name: nfs_sw_main
+      volume: nfs_sw_main
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      mount_opts: "defaults,compress=lzo"
+    - name: nfs_sw_tmp
+      volume: nfs_sw_tmp
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      mount_opts: "defaults,compress=lzo"
+
+node_groups:
+  - ssd
+
+ssd:
+  flavor: io.700GB
+  image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  num_vms: 8
+  volumes:
+    - name: ssd
+      size: 0
+      pv_path: "/dev/vdb"
+    - name: datavol
+      size: 300
+      pv_path: "/dev/vdc"
+  filesystems:
+    - name: hadoop_ssd
+      volume: ssd
+      size: "97%VG"
+      mount_path: /hadoop/ssd
+      fstype: xfs
+    - name: swap
+      volume: ssd
+      size: "2%VG"
+      fstype: swap
+    - name: hadoop_disk
+      volume: datavol
+      size: "99%VG"
+      mount_path: /hadoop/disk
+      fstype: xfs
