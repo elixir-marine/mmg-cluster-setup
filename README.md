@@ -1,12 +1,12 @@
 # mmg-cluster-setup
   
- -  
+|  
   
 Command-line tool for setting up META-pipe on openstack-based cPouta (pouta.csc.fi). Runs complex procedures with 1 or few commands.  
 In development.  
 Was tested on (K)Ubuntu 12.04/14.04/16.04.  
   
- -  
+|  
   
 Requirements:
 - Linux. Preferably (K)Ubuntu, v12.04 or higher.
