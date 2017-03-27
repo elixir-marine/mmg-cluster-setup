@@ -1,15 +1,15 @@
 # mmg-cluster-setup
-
+  
 Command-line tool for setting up META-pipe on openstack-based cPouta (pouta.csc.fi). Runs complex procedures with 1 or few commands.  
 In development.  
 Was tested on (K)Ubuntu 12.04/14.04/16.04.  
-
+  
 Requirements:
 - Linux. Preferably (K)Ubuntu, v12.04 or higher.
 - OpenStack username/password, OpenStack active project with enough available resources.
 - Installed Java 8: "openjdk-8-jdk" for (K)Ubuntu, "java-1.8.0-openjdk" for CentOS.
 - Firefox (for viewing Spark web UI).
-
+  
 What it can do:
 - Set up OpenStack environment.
 - Prepare processing software (META-pipe) for being used by a cluster.
@@ -20,12 +20,12 @@ What it can do:
 - Vast amount of logging/debugging information displayed and saved into text files.
 - Display information such as quota/overview, how much time it has taken to run a procedure, etc.
 - For more info, see "Commands" and "Details" below.
-
+  
 Current limitations / 2-be-done in the future:
 - The use of anti-affinity groups is disabled until it is implemented in Ansible 2.2.
 - Only 1 bastion/cluster can exist per time.
 - META-pipe assembly step is not available yet.
-
+  
 Structure of the tool folder "v4":
 - "out": ready-to-use tool.
   - "config.yml": The file to be modified by user. Important that it is set up correctly.
@@ -47,7 +47,7 @@ Structure of the tool folder "v4":
     - "_test.sh": validates installed sw.
   - other files/folders: other tool components.
 - other files/folders: source files.
-
+  
 Good 2 know:
 - Make sure "config.yml" it is configured correctly and according to the needs. Pay attention to the comments in the file. If smth is wrong, the tool should detect it.
 - How to run:
@@ -61,7 +61,7 @@ Good 2 know:
 - Before running a complex operation, the tool validates whether the project has enough resources available - if yes, the operation continues, if no, it is cancelled. However not all resource information might be available via OS API, in this case the resource is ignored during the validation and the user should check it manually with help of OpenStack project web-pages. In the overview table in the tool, such resources are shown as "n/a".
 - Output from each tool session is written to a separate log file. Logs can be quite big, might be good to periodically clean up in the folder.
 - The duration of "create-*", "remove-*", "test" and "sw-update" is printed when execution finishes.
-
+  
 Commands:
 - "help".
 - "quit" and "exit".
@@ -96,8 +96,8 @@ Commands:
   Opens access to Ambari cluster management web-gui to the provided IP address or addresses.
 - "ip-admin-remove X.X.X.X":
   The opposite of "ip-admin-add X.X.X.X".
-
-
+  
+  
 Algorithm Details (the variable names {X} are taken from config.yml):
 
 "overview":
