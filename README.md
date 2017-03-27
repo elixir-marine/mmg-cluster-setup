@@ -72,7 +72,7 @@ Good 2 know:
 - The tool has terminal-like autocomplete, press Tab when command is partially entered.
 - Before running a complex operation, the tool validates whether the project has enough resources available - if yes, the operation continues, if no, it is cancelled. However not all resource information might be available via OS API, in this case the resource is ignored during the validation and the user should check it manually with help of OpenStack project web-pages. In the overview table in the tool, such resources are shown as "n/a".
 - Output from each tool session is written to a separate log file. Logs can be quite big, might be good to periodically clean up in the folder.
-- The duration of "create-*", "remove-*", "test" and "sw-update" is printed when execution finishes.
+- The duration of "create*", "remove*", "test" and "sw-update" is printed when execution finishes.
   
 |  
   
