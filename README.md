@@ -185,6 +185,7 @@ Algorithm Details (the variable names {X} are taken from config.yml):
 - Open access to the cluster master for all "admins":
   - Get the IP used for the internet connection on the machine where the tool is running, using {ipCheck}.
   - Add this IP to the {ipAdmins} list.
+  - For all IPs in the {ipAdmins} list, create a security group rule in the group {clusterName}-master with the parameters: Ingress, port 4040, protocol TCP.
   - For all IPs in the {ipAdmins} list, create a security group rule in the group {clusterName}-master with the parameters: Ingress, port 8080, protocol TCP.
 - Generate Spark web UI executable shortcut.
 - Launch the tool on Bastion.
