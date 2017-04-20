@@ -4,6 +4,7 @@ import org.jclouds.openstack.cinder.v1.CinderApi;
 import org.jclouds.openstack.cinder.v1.domain.Snapshot;
 import org.jclouds.openstack.cinder.v1.domain.VolumeQuota;
 import org.jclouds.openstack.keystone.v2_0.domain.Tenant;
+import org.jclouds.openstack.neutron.v2.NeutronApi;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.domain.*;
 
@@ -69,18 +70,29 @@ public class HardwareStats
     public int keyPairs4env;
     public int keyPairs4newCluster;
 
-    // These stats are 2 be implemented when server groups are implemented in jClouds
+    // These stats are to be implemented when server groups are implemented in jClouds
     public int serverGroupsMax;
     public int serverGroupsUsed;
     public int serverGroups4env;
     public int serverGroups4newCluster;
 
-    private HardwareStats() { }
+    HardwareStats() { }
 
-    public static HardwareStats loadHardwareStats(Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi)
+    HardwareStats loadHardwareStats(Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+    {
+        loadHardwareStatsStatic(this, config, novaApi, tenant, cinderApi, neutronApi);
+        return this;
+    }
+
+    public static HardwareStats loadHardwareStatsStatic(Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
     {
         HardwareStats hardwareStats = new HardwareStats();
+        return loadHardwareStatsStatic(hardwareStats, config, novaApi, tenant, cinderApi, neutronApi);
+    }
 
+    public static HardwareStats loadHardwareStatsStatic(HardwareStats hardwareStats, Configuration config,
+                                                        NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+    {
         Quota quota = novaApi.getQuotaApi(config.getRegionName()).get().getByTenant(tenant.getId());
         VolumeQuota volumeQuota = cinderApi.getQuotaApi(config.getRegionName()).getByTenant(tenant.getId()); // for some reason CinderApi doesn't work
 
@@ -210,14 +222,14 @@ public class HardwareStats
         return hardwareStats;
     }
 
-    public void printStats(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi)
+    public void printStats(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
     {
 //        String leftAlignFormat = " | %-15s | %-9d | %-8d | %-9d | %-11d | %-16d |%n";
         String leftAlignFormat = " | %-18s | %-9s | %-10s | %-11s | %-11s | %-13s | %-11s |%n";
         String header = " |                    |   Quota   |    Used    |  Available  |  Req 4 Env  | Req 4 Cluster |  Req 4 All  |%n";
         String separator = " +--------------------+-----------+------------+-------------+-------------+---------------+-------------+%n";
 
-        //this.loadHardwareStats(config, novaApi, tenant, cinderApi);
+        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
 
         out.format(separator);
         out.format(header);
@@ -228,10 +240,10 @@ public class HardwareStats
         printStatsString(out, leftAlignFormat, "Volumes (#)", this.volumesMax, this.volumesUsed, this.volumes4env, this.volumes4newCluster);
         printStatsString(out, leftAlignFormat, "Volumes (GB)",
                 this.volumeStorageMax, this.volumeStorageUsed, this.volumeStorage4env, this.volumeStorage4newCluster);
-        printStatsString(out, leftAlignFormat, "Vol.Snapshots (#)",
-                this.volumeSnapshotsMax, this.volumeSnapshotsUsed, this.volumeSnapshots4env, this.volumeSnapshots4newCluster);
-        printStatsString(out, leftAlignFormat, "Vol.Snapshots (GB)",
-                this.volumeSnapStorageMax, this.volumeSnapStorageUsed, this.volumeSnapStorage4env, this.volumeSnapStorage4newCluster);
+//        printStatsString(out, leftAlignFormat, "Vol.Snapshots (#)",
+//                this.volumeSnapshotsMax, this.volumeSnapshotsUsed, this.volumeSnapshots4env, this.volumeSnapshots4newCluster);
+//        printStatsString(out, leftAlignFormat, "Vol.Snapshots (GB)",
+//                this.volumeSnapStorageMax, this.volumeSnapStorageUsed, this.volumeSnapStorage4env, this.volumeSnapStorage4newCluster);
         printStatsString(out, leftAlignFormat, "Floating IP", this.floatingIpMax, this.floatingIpUsed, this.floatingIp4env, this.floatingIp4newCluster);
         printStatsString(out, leftAlignFormat, "Security Groups",
                 this.securityGroupsMax, this.securityGroupsUsed, this.securityGroups4env, this.securityGroups4newCluster);
@@ -258,6 +270,10 @@ public class HardwareStats
             usedS = Integer.toString(used) + " (" + percentString(max, used) + ")";
             remainsS = Integer.toString(max - used) + " (" + percentString(max, max - used) + ")";
         }
+        if(used > max)
+        {
+            maxS += " ERR!";
+        }
         if(used == -1)
         {
             usedS = "n/a";
@@ -273,20 +289,20 @@ public class HardwareStats
         return Integer.toString((int)(part / full * 100)) + "%";
     }
 
-    public boolean canCreateEnv(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi)
+    public boolean canCreateEnv(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
     {
-        out.println("Resources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' started.\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi,
+        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' started...\n");
+        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
                 cores4env, ram4env, instances4env, volumes4env, volumeStorage4env, volumeSnapshots4env, volumeSnapStorage4env,
                 floatingIp4env, securityGroups4env, securityGroupRules4env, keyPairs4env, serverGroups4env);
         out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' finished.\n");
         return res;
     }
 
-    public boolean canCreateCluster(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi)
+    public boolean canCreateCluster(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
     {
-        out.println("Resources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' started.\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi,
+        out.println("\nResources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' started...\n");
+        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
                 cores4newCluster, ram4newCluster, instances4newCluster, volumes4newCluster, volumeStorage4newCluster,
                 volumeSnapshots4newCluster, volumeSnapStorage4newCluster, floatingIp4newCluster, securityGroups4newCluster,
                 securityGroupRules4newCluster, keyPairs4newCluster, serverGroups4newCluster);
@@ -294,10 +310,10 @@ public class HardwareStats
         return res;
     }
 
-    public boolean canCreateAll(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi)
+    public boolean canCreateAll(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
     {
-        out.println("Resources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' started.\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi,
+        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' started...\n");
+        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
                 cores4env + cores4newCluster, ram4env + ram4newCluster, instances4env + instances4newCluster, volumes4env + volumes4newCluster,
                 volumeStorage4env + volumeStorage4newCluster, volumeSnapshots4env + volumeSnapshots4newCluster,
                 volumeSnapStorage4env + volumeSnapStorage4newCluster, floatingIp4env + floatingIp4newCluster, securityGroups4env + securityGroups4newCluster,
@@ -306,12 +322,13 @@ public class HardwareStats
         return res;
     }
 
-    private boolean canCreateValidation(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi,
+    private boolean canCreateValidation(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi,
                               int coresRequired, int ramRequired, int instancesRequired, int volumesRequired, int volStorageRequired,
                               int volSnapshotsRequired, int volSnapStorageRequired, int floatingIpsRequired, int secGroupsRequired,
                               int secGroupRulesRequired, int keyPairsRequired, int serverGroupsRequired)
     {
-        //loadHardwareStats(config, novaApi, tenant, cinderApi);
+        //loadHardwareStatsStatic(config, novaApi, tenant, cinderApi);
+        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
         List<String> errorSet = new ArrayList<String>();
         List<String> naSet = new ArrayList<String>();
 
@@ -320,8 +337,8 @@ public class HardwareStats
         canCreateBuildErrorSet(errorSet, naSet, "Instances", instancesMax, instancesUsed, instancesRequired);
         canCreateBuildErrorSet(errorSet, naSet, "Volumes (#)", volumesMax, volumesUsed, volumesRequired);
         canCreateBuildErrorSet(errorSet, naSet, "Volumes (GB)", volumeStorageMax, volumeStorageUsed, volStorageRequired);
-        canCreateBuildErrorSet(errorSet, naSet, "Volume Snapshots (#)", volumeSnapshotsMax, volumeSnapshotsUsed, volSnapshotsRequired);
-        canCreateBuildErrorSet(errorSet, naSet, "Volume Snapshots (GB)", volumeSnapStorageMax, volumeSnapStorageUsed, volSnapStorageRequired);
+//        canCreateBuildErrorSet(errorSet, naSet, "Volume Snapshots (#)", volumeSnapshotsMax, volumeSnapshotsUsed, volSnapshotsRequired);
+//        canCreateBuildErrorSet(errorSet, naSet, "Volume Snapshots (GB)", volumeSnapStorageMax, volumeSnapStorageUsed, volSnapStorageRequired);
         canCreateBuildErrorSet(errorSet, naSet, "Floating IPs", floatingIpMax, floatingIpUsed, floatingIpsRequired);
         canCreateBuildErrorSet(errorSet, naSet, "Security Groups", securityGroupsMax, securityGroupsUsed, secGroupsRequired);
         canCreateBuildErrorSet(errorSet, naSet, "Security Group Rules", securityGroupRulesMax, securityGroupRulesUsed, secGroupRulesRequired);
@@ -340,21 +357,29 @@ public class HardwareStats
                 out.println(s);
             }
         }
-        out.println("WARNINGS:");
-        for(String s : naSet)
+        if(!naSet.isEmpty())
         {
-            out.println(s);
+            out.println("WARNINGS:");
+            for(String s : naSet)
+            {
+                out.println(s);
+            }
         }
         return errorSet.isEmpty();
     }
 
     private void canCreateBuildErrorSet(List<String> errorSet, List<String> naSet, String name, int max, int used, int required)
     {
-        if(max == 0)
+        if(required > 0 && max == 0)
         {
             naSet.add(name + " ::: not possible to validate. Information about the resource was not received from the API.");
         }
-        else if((max - used) <= required)
+        //else if(used > max)
+        //{
+        //    naSet.add(name + " ::: API seems to work incorrectly: used resources cannot be bigger than quota.");
+        //}
+        //else if((max - used) <= required)
+        else if(!canCreateCheck(max, used, required))
         {
             errorSet.add(name + " ::: Quota: " + max + ", Available: " + (max - used) + ", Required: " + required + ".");
         }

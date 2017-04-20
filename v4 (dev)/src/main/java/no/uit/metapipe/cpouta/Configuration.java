@@ -1,16 +1,18 @@
 package no.uit.metapipe.cpouta;
 
+import com.google.common.net.InetAddresses;
+import com.sun.deploy.util.ArrayUtil;
+import javafx.util.Pair;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import static java.lang.System.exit;
 
 
 public final class Configuration
@@ -79,6 +81,8 @@ public final class Configuration
     private int sparkWorkerVmCores;
     private int sparkWorkerVmRam;
     private int sparkExecutorCores;
+
+    private Integer maxLogs;
 
     static String errorMessagePrefix = "ERROR detected in 'config.yml'! Check the correctness of: ";
 
@@ -316,38 +320,116 @@ public final class Configuration
         return ipAdmins;
     }
 
-    public void setIpAdmins(List<String> ipAdmins)
+//    public List<Pair<String, String>> getIpAdminsPairs()
+//    {
+//        List<Pair<String, String>> ipAdminsPairs = new ArrayList<Pair<String, String>>();
+//        for(String s : ipAdmins)
+//        {
+//            ipAdminsPairs.add(getIpAdminsPairFromString(s));
+//        }
+//        return ipAdminsPairs;
+//    }
+
+    public Pair<String, String> getIpAdminsPairFromString(String s)
     {
-        if(ipAdmins == null)
+        String[] tempArr = s.trim().split("-");
+        if (tempArr.length == 1)
         {
-            this.ipAdmins = new ArrayList<String>();
+            return new Pair(tempArr[0].trim(), tempArr[0].trim());
+        }
+        else if(tempArr.length == 2)
+        {
+            return new Pair(tempArr[0].trim(), tempArr[1].trim());
         }
         else
         {
-            this.ipAdmins = ipAdmins;
+            System.out.println("\n" + "THIS SHOULD HAVE NEVER HAPPENED: invalid syntax:  '" + s + "'.\n");
+            exit(1);
+        }
+        return null;
+    }
+
+    public String getIpAdminsStringFormatted(String s)
+    {
+        Pair<String, String> tempPair = getIpAdminsPairFromString(s);
+        if(tempPair.getKey().equals(tempPair.getValue()))
+        {
+            return tempPair.getKey();
+        }
+        else
+        {
+            return tempPair.getKey() + "-" + tempPair.getValue();
         }
     }
 
+    public void setIpAdmins(List<String> ipAdmins)
+    {
+        this.ipAdmins = new ArrayList<String>();
+        if(ipAdmins != null)
+        {
+            for(String s : ipAdmins)
+            {
+                this.ipAdmins.add(getIpAdminsStringFormatted(s));
+            }
+        }
+    }
+
+//    public boolean containsIpAdminsPair(Pair p)
+//    {
+//        String[] temp = null;
+//        for(String s : this.ipAdmins)
+//        {
+//            temp = s.split("-");
+//            if(temp.length == 1 && temp[0].equals(p.getKey()) && temp[0].equals(p.getValue()))
+//            {
+//                return true;
+//            }
+//            else if(temp.length == 2 && temp[0].equals(p.getKey()) && temp[1].equals(p.getValue()))
+//            {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
+
     public void addIpAdmins(List<String> newIps)
     {
+        String formatted;
         for(String s : newIps)
         {
-            if(s != null && !s.isEmpty() && !this.ipAdmins.contains(s))
+            if(s != null && !s.isEmpty())
             {
-                this.ipAdmins.add(s);
-                Utils.addNewListFileEntry("config.yml", "ipAdmins", s);
+                formatted = getIpAdminsStringFormatted(s);
+                if(!this.ipAdmins.contains(formatted))
+                {
+                    Utils.addNewListFileEntry("config.yml", "ipAdmins", formatted);
+                    this.ipAdmins.add(formatted);
+                }
+                else
+                {
+                    System.out.println("'ipAdmins' already contains '" + formatted + "'.");
+                }
             }
         }
     }
 
     public void removeIpAdmins(List<String> ips)
     {
+        String formatted;
         for(String s : ips)
         {
-            if(s != null && !s.isEmpty() && this.ipAdmins.contains(s))
+            if(s != null && !s.isEmpty())
             {
-                this.ipAdmins.remove(s);
-                Utils.updateYamlFileValue("config.yml", s, null);
+                formatted = getIpAdminsStringFormatted(s);
+                if(this.ipAdmins.contains(formatted))
+                {
+                    this.ipAdmins.remove(formatted);
+                    Utils.updateYamlFileValue("config.yml", formatted, null);
+                }
+                else
+                {
+                    System.out.println("Error, cannot remove, IP '" + s + "' not found in config.yml.");
+                }
             }
         }
     }
@@ -709,4 +791,26 @@ public final class Configuration
         this.sparkExecutorCores = Utils.intValidate(sparkExecutorCores, errorMessagePrefix + "sparkExecutorCores", false);
     }
 
+    public int getMaxLogs()
+    {
+        return maxLogs;
+    }
+
+//    public void setMaxLogs(String maxLogs)
+//    {
+//        if(Utils.objectHasContents(maxLogs))
+//        {
+//            this.maxLogs = Integer.parseInt(maxLogs);
+//        }
+//        else
+//        {
+//            this.maxLogs = -1;
+//        }
+//    }
+
+    public void setMaxLogs(int maxLogs)
+    {
+            this.maxLogs = maxLogs;
+
+    }
 }

@@ -4,6 +4,7 @@ import com.google.common.collect.*;
 import com.google.common.io.Closeables;
 import com.google.inject.Module;
 import com.jcraft.jsch.*;
+import javafx.util.Pair;
 import jline.console.ConsoleReader;
 import jline.console.completer.StringsCompleter;
 import org.apache.commons.io.output.TeeOutputStream;
@@ -18,6 +19,8 @@ import org.jclouds.openstack.keystone.v2_0.KeystoneApiMetadata;
 import org.jclouds.openstack.keystone.v2_0.config.CredentialTypes;
 import org.jclouds.openstack.keystone.v2_0.config.KeystoneProperties;
 import org.jclouds.openstack.keystone.v2_0.domain.Tenant;
+import org.jclouds.openstack.neutron.v2.NeutronApi;
+import org.jclouds.openstack.neutron.v2.NeutronApiMetadata;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.nova.v2_0.NovaApiMetadata;
@@ -31,6 +34,8 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.net.URLDecoder;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -53,10 +58,11 @@ public class MainClass implements Closeable
 
     private File logsFolderFile;
     private FileOutputStream logsStream;
-    private String logsFileName;
+    private String logFileName;
 
     private NovaApi novaApi;
     private KeystoneApi keystoneApi;
+    private NeutronApi neutronApi;
     private CinderApi cinderApi;
     private Tenant tenant;
     private Set<String> regions;
@@ -102,8 +108,11 @@ public class MainClass implements Closeable
         REMOVE_ENV("remove-env"),
         REMOVE_ALL("remove-all"),
         REMOVE_CREATE_CLUSTER("remove-create-cluster"),
-        IP_ADMIN_ADD("ip-admin-add"),
-        IP_ADMIN_REMOVE("ip-admin-remove");
+        ADMIN_ADD("admin-add"),
+        ADMIN_REMOVE("admin-remove"),
+        ADMIN_LIST("admin-list"),
+        EXEC_BASTION("execute-bastion>>>"),
+        EXEC_MASTER("execute-master>>>");
         private final String command;
         Commands(String command)
         {
@@ -203,6 +212,12 @@ public class MainClass implements Closeable
                     .modules(modules)
                     .buildApi(CinderApi.class);
 
+            neutronApi = ContextBuilder.newBuilder(new NeutronApiMetadata())
+                    .endpoint(config.getOsAuthName())
+                    .credentials(tenant.getName() + ":" + userName, password)
+                    .modules(modules)
+                    .buildApi(NeutronApi.class);
+
             regions = novaApi.getConfiguredRegions();
             serverApi = novaApi.getServerApi(config.getRegionName());
             flavorApi = novaApi.getFlavorApi(config.getRegionName());
@@ -214,13 +229,19 @@ public class MainClass implements Closeable
             volumeAttachmentApi = novaApi.getVolumeAttachmentApi(config.getRegionName()).get();
             volumeSnapshotApi = cinderApi.getSnapshotApi(config.getRegionName());
 //            serverGroupApi = novaApi.getServerGroupApi(config.getRegionName()).get();
-            hardwareStats = HardwareStats.loadHardwareStats(config, novaApi, tenant, cinderApi);
+//            if(isBastionRoutine)
+//            {
+                hardwareStats = new HardwareStats();
+//            }
+//            else
+//            {
+//                hardwareStats = HardwareStats.loadHardwareStatsStatic(config, novaApi, tenant, cinderApi);
+//            }
         }
 
         String path = MainClass.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-        String decodedPath = "";
         try {
-            decodedPath = URLDecoder.decode(path, "UTF-8");
+            URLDecoder.decode(path, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
             exit(1);
@@ -231,31 +252,74 @@ public class MainClass implements Closeable
         {
             tempFolderFile.mkdir();
         }
-        System.out.print("\nTemporary folder: " + tempFolderFile.getAbsolutePath() + "\n");
+        System.out.println("Temp folder: " + tempFolderFile.getAbsolutePath());
 
         if(!isBastionRoutine)
         {
-            logsFolderFile = new File ("logs");
-            if(!logsFolderFile.exists())
-            {
-                logsFolderFile.mkdir();
-            }
-            logsFileName = "log_" + (new SimpleDateFormat("yyyyMMdd-HHmmss")).format(Calendar.getInstance().getTime()) + ".txt";
-            try
-            {
-                logsStream = new FileOutputStream(new File(logsFolderFile.getAbsolutePath() + "/" + logsFileName));
-            }
-            catch (FileNotFoundException e)
-            {
-                e.printStackTrace();
-            }
-            printStreamTee = new TeeOutputStream(System.out, logsStream);
-            printStream = new PrintStream(printStreamTee);
-            System.setOut(printStream);
-            System.out.print("\nLogs folder: " + logsFolderFile.getAbsolutePath() + "\n\n");
-        }
+            initOutStreamAndLogs();
 
-        stopwatch = new Stopwatch();
+            stopwatch = new Stopwatch();
+        }
+        else
+        {
+            System.out.println();
+        }
+    }
+
+    private void initOutStreamAndLogs()
+    {
+        File[] existingLogs;
+        logsFolderFile = new File ("logs");
+        System.out.println("Logs folder: " + logsFolderFile.getAbsolutePath());
+        if(!logsFolderFile.exists())
+        {
+            logsFolderFile.mkdir();
+        }
+        logFileName = "log_" + (new SimpleDateFormat("yyyyMMdd-HHmmss")).format(Calendar.getInstance().getTime()) + ".txt";
+        try
+        {
+            logsStream = new FileOutputStream(new File(logsFolderFile.getAbsolutePath() + "/" + logFileName));
+        }
+        catch (FileNotFoundException e)
+        {
+            e.printStackTrace();
+        }
+        printStreamTee = new TeeOutputStream(System.out, logsStream);
+        printStream = new PrintStream(printStreamTee);
+        System.setOut(printStream);
+        if(config.getMaxLogs() >= 0)
+        {
+            int deletedCount = 0;
+            existingLogs = logsFolderFile.listFiles();
+            Arrays.sort(existingLogs);
+//            System.out.println();
+//            for(File f : existingLogs)
+//            {
+//                System.out.println(f.getName());
+//            }
+            for(int i = 0; i < existingLogs.length - config.getMaxLogs(); i++)
+            {
+                try
+                {
+                    existingLogs[i].delete();
+                    deletedCount++;
+                }
+                catch (SecurityException e)
+                {
+                    System.out.println("ERROR: not possible to delete file: " + existingLogs[i].getName() + "\n");
+                    e.printStackTrace();
+                }
+            }
+            if(deletedCount == 1)
+            {
+                System.out.println("(Deleted " + deletedCount + " old log)");
+            }
+            else
+            {
+                System.out.println("(Deleted " + deletedCount + " old logs)");
+            }
+        }
+        System.out.println();
     }
 
     public static void main(String[] args)
@@ -263,6 +327,7 @@ public class MainClass implements Closeable
         MainClass mainClass;
         System.out.println();
         Yaml yaml = new Yaml();
+        String usr = null, pswd = null;
         final String programName = new java.io.File(MainClass.class.getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
@@ -273,40 +338,87 @@ public class MainClass implements Closeable
                 "username=OS_Username " +
                 "password=OS_Password \n";
         final String help =
-                "BE SURE THAT CONFIG.YML IS CONFIGURED CORRECTLY.\n";
+                "\nBE SURE THAT CONFIG.YML IS CONFIGURED CORRECTLY.\n";
         final String helpOps =
-                "COMMANDS-LIST:\n" +
-                Commands.HELP.getCommand() + ": This message.\n" +
-                Commands.QUIT.getCommand() + "/" + Commands.EXIT.getCommand() + ": Exit.\n" +
-                Commands.STAT.getCommand() + ": Info about total/used/available resources, resources required for 'create-*' commands.\n" +
-                Commands.CREATE_ENV.getCommand() + ": Create environment - required OS settings, bastion host \n" +
-                Commands.CREATE_CLUSTER.getCommand() + ": Create a new cluster and set up Pipe software " +
-                        "(given that 'create-env' was executed before, and cluster doesn't exist).\n" +
-                Commands.CREATE_ALL.getCommand() + ": 'create-env' + 'create-cluster'\n" +
-                Commands.TEST.getCommand() + ": Run test script on the existing Spark cluster, run validation of installed Pipe software.\n" +
-                Commands.TEST_DEV.getCommand() + ": Run test script on the existing Spark cluster, run validation of installed Pipe software. Before testing, the components of the tool are updated on Bastion and Master.\n" +
-                Commands.SW_LAUNCH.getCommand() + ": Launch the installed Pipe software.\n" +
-                Commands.SW_LAUNCH_DEV.getCommand() + ": Launch the installed Pipe software. Before launching, the components of the tool are updated on Bastion and Master.\n" +
-                Commands.SW_STOP.getCommand() + ": Stops all sw/spark processes running on the cluster.\n" +
-                Commands.SW_STOP_DEV.getCommand() + ": Stops all sw/spark processes running on the cluster. Before launching, the components of the tool are updated on Bastion and Master.\n" +
-                Commands.SW_UPDATE.getCommand() + ": Re-download Pipe software to the existing environment, and re-install it on the cluster if it exists.\n" +
-                Commands.REMOVE_CLUSTER.getCommand() + ": Remove existing cluster and keep the OS environment for future use.\n" +
-                Commands.REMOVE_ENV.getCommand() + ": Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. \n" +
-                Commands.REMOVE_ALL.getCommand() + ": Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything.\n" +
-                Commands.REMOVE_CREATE_CLUSTER.getCommand() + ": Runs '" + Commands.REMOVE_CLUSTER.getCommand() +
-                        "' and then '" + Commands.CREATE_CLUSTER.getCommand() + "'.\n" +
-                Commands.IP_ADMIN_ADD.getCommand() + " X.X.X.X: Adding IP to admins will give the IP-owner access to cluster management web-gui.\n" +
-                Commands.IP_ADMIN_REMOVE.getCommand() + " X.X.X.X: Remove the IP from admins.\n";
-        String usr = null, pswd = null;
+                "\nCOMMANDS:\n" +
+//                "\nGeneral/Info:\n" +
+                "\n" +
+                "--------------------\n" +
+                "|'" + Commands.HELP.getCommand() + "'\n" +
+//                        "This message.\n" +
+                "|'" + Commands.QUIT.getCommand() + "', '" + Commands.EXIT.getCommand() + "'\n" +
+//                        "Exit.\n" +
+                "|'" + Commands.STAT.getCommand() + "':\n|\t" +
+                        "Info about total/used/available resources, resources required for 'create-*' commands.\n" +
+//                "\nCreate:\n" +
+                "--------------------\n" +
+                "|'" + Commands.CREATE_ENV.getCommand() + "':\n|\t" +
+                        "Create environment - required OS settings, bastion host \n" +
+                "|'" + Commands.CREATE_CLUSTER.getCommand() + "':\n|\t" +
+                        "Create a new cluster and set up Pipe software (given that 'create-env' was executed before, and cluster doesn't exist).\n" +
+                "|'" + Commands.CREATE_ALL.getCommand() + "':\n|\t" +
+                        "create-env + create-cluster.\n" +
+//                "\nTest:\n" +
+                "--------------------\n" +
+                "|'" + Commands.TEST.getCommand() + "':\n|\t" +
+                        "Run test script on the existing Spark cluster, run validation of installed Pipe software.\n" +
+                "|'" + Commands.TEST_DEV.getCommand() + "':\n|\t" +
+                        "Run test script on the existing Spark cluster, run validation of installed Pipe software.\n|\t" +
+                        "Before testing, the components of the tool are updated on Bastion and Master.\n" +
+//                "\nOperations with SW:\n" +
+                "--------------------\n" +
+                "|'" + Commands.SW_LAUNCH.getCommand() + "':\n|\t" +
+                        "Launch the installed Pipe software.\n" +
+                "|'" + Commands.SW_LAUNCH_DEV.getCommand() + "':\n|\t" +
+                        "Launch the installed Pipe software.\n|\t" +
+                        "Before launching, the components of the tool are updated on Bastion and Master.\n" +
+                "|'" + Commands.SW_STOP.getCommand() + "':\n|\t" +
+                        "Stops all sw/spark processes running on the cluster.\n" +
+                "|'" + Commands.SW_STOP_DEV.getCommand() + "':\n|\t" +
+                        "Stops all sw/spark processes running on the cluster.\n|\t" +
+                        "Before launching, the components of the tool are updated on Bastion and Master.\n" +
+                "|'" + Commands.SW_UPDATE.getCommand() + "':\n|\t" +
+                        "Re-download Pipe software to the existing environment, and re-install it on the cluster if it exists.\n" +
+//                "\nRemove:\n" +
+                "--------------------\n" +
+                "|'" + Commands.REMOVE_CLUSTER.getCommand() + "':\n|\t" +
+                        "Remove existing cluster and keep the OS environment for future use.\n" +
+                "|'" + Commands.REMOVE_ENV.getCommand() + "':\n|\t" +
+                        "Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. Add 'skip-disk' to save the sw-disk.\n" +
+                "|'" + Commands.REMOVE_ALL.getCommand() + "':\n|\t" +
+                        "Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything. Add 'skip-disk' to save the sw-disk.\n" +
+                "|'" + Commands.REMOVE_CREATE_CLUSTER.getCommand() + "':\n|\t" +
+                        "Runs '" + Commands.REMOVE_CLUSTER.getCommand() + "' and then '" + Commands.CREATE_CLUSTER.getCommand() + "'.\n" +
+//                "\nAdmin IPs:\n" +
+                "--------------------\n" +
+                "|'" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X', '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X X.X.X.X ...', " +
+                    Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X', '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ...':\n|\t" +
+                        "Open access to cluster web UI for the given IP(s)/IP-range(s).\n|\t" +
+                        "To open access for all addresses, run '" + Commands.ADMIN_ADD.getCommand() + " 0.0.0.0-255.255.255.255'\n" +
+                "|'" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X', '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X X.X.X.X ...', " +
+                    Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X', '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ...':\n|\t" +
+                        "Remove the IP(s)/IP-range(s) from admins.\n" +
+                "|'" + Commands.ADMIN_LIST.getCommand() + "':\n|\t" +
+                        "List admin IPs.\n" +
+//                "\nExecute bash commands:\n" +
+                "--------------------\n" +
+                "|'" + Commands.EXEC_BASTION.getCommand() + " command ', '" + Commands.EXEC_BASTION.getCommand() + " command ; command ; ... ':\n|\t" +
+                        "Execute a command or a simple set of commands (Bash) on Bastion.\n|\t" +
+                        "Must be single-line. Single and double quotes are allowed.\n" +
+                "|'" + Commands.EXEC_MASTER.getCommand() + " command ', '" + Commands.EXEC_MASTER.getCommand() + " command ; command ; ... ':\n|\t" +
+                        "Execute a command or a simple set of commands (Bash) on Master.\n|\t" +
+                        "Must be single-line. Single and double quotes are allowed.\n" +
+                "--------------------\n";
 
         config = Configuration.loadConfig();
+        List<String> argsList = Arrays.asList(args);
         if(args.length == 0)
         {
             System.out.println(helpLaunch);
         }
         else
         {
-            for(String arg : args)
+            for(String arg : argsList)
             {
                 if(arg.trim().contains("username="))
                 {
@@ -315,16 +427,23 @@ public class MainClass implements Closeable
                 if(arg.trim().contains("password="))
                 {
                     pswd = arg.trim().replace("password=", "");
+                    break;
                 }
             }
-            for(String arg : args)
+            for(String arg : argsList)
             {
                 if(arg.trim().contains("_bastion-routine="))
                 {
                     System.out.println("===== BASTION ROUTINE =====");
+                    String suffix = "";
+                    if(argsList.indexOf(arg) == argsList.size() - 2)
+                    {
+                        suffix = " " + argsList.get(argsList.indexOf(arg) + 1);
+                    }
+                    //System.out.println(arg.trim().replace("_bastion-routine=", "") + " " + suffix);
                     mainClass = new MainClass(usr, pswd, config.getClusterKeyFileName(), true);
                     mainClass.initBastionReference();
-                    BastionRoutine.bastionRoutine(arg.trim().replace("_bastion-routine=", ""),
+                    BastionRoutine.bastionRoutine(arg.trim().replace("_bastion-routine=", "") + suffix,
                             mainClass.ssh, config, mainClass.getMasterReference(config.getClusterName()));
                     return;
                 }
@@ -391,9 +510,9 @@ public class MainClass implements Closeable
 
             mainClass = new MainClass(usr, pswd, "id_rsa", false);
             mainClass.configValidateWithNova(config);
-            ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false);
-            out.println("\n\n" + helpOps + "\n");
-            out.println(help);
+            ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false, true);
+            out.println(helpOps);
+            out.println(help + "\n");
             while ((line = reader.readLine()) != null)
             {
                 String[] cmd = line.split("\\s+");
@@ -401,22 +520,22 @@ public class MainClass implements Closeable
                 if(cmd[0].equalsIgnoreCase(Commands.HELP.getCommand()) && cmd.length == 1)
                 {
                     out.println("\n" + help);
-                    out.println(helpOps);
+                    out.println(helpOps + "\n");
                 }
-                else if (line.equalsIgnoreCase(Commands.EXIT.getCommand()) || line.equalsIgnoreCase(Commands.QUIT.getCommand()))
+                else if ((cmd[0].equalsIgnoreCase(Commands.EXIT.getCommand()) || cmd[0].equalsIgnoreCase(Commands.QUIT.getCommand())) && cmd.length == 1)
                 {
                     out.println();
                     break;
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.STAT.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    mainClass.hardwareStats.printStats(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
+//                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
+                    mainClass.hardwareStats.printStats(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi);
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ENV.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateEnv(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi))
+//                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
+                    if(mainClass.hardwareStats.canCreateEnv(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
                     {
                         mainClass.stopwatch.start();
                         mainClass.createEnv();
@@ -424,7 +543,7 @@ public class MainClass implements Closeable
                     }
                     else
                     {
-                        mainClass.printStream.println("OPERATION CANCELED.\n");
+                        mainClass.printStream.println("OPERATION CANCELED.\n\n");
                     }
                 }
                 else if((cmd[0].equalsIgnoreCase(Commands.CREATE_CLUSTER.getCommand()) ||
@@ -436,21 +555,21 @@ public class MainClass implements Closeable
                     {
                         mainClass.removeCluster();
                     }
-                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateCluster(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi))
+//                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
+                    if(mainClass.hardwareStats.canCreateCluster(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
                     {
                         mainClass.createCluster(out);
                     }
                     else
                     {
-                        mainClass.printStream.println("OPERATION CANCELED.\n");
+                        mainClass.printStream.println("OPERATION CANCELED.\n\n");
                     }
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ALL.getCommand()) && cmd.length == 1)
                 {
-                    mainClass.hardwareStats = HardwareStats.loadHardwareStats(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateAll(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi))
+//                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
+                    if(mainClass.hardwareStats.canCreateAll(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
                     {
                         mainClass.stopwatch.start();
                         mainClass.createEnv();
@@ -459,7 +578,7 @@ public class MainClass implements Closeable
                     }
                     else
                     {
-                        mainClass.printStream.println("OPERATION CANCELED.\n");
+                        mainClass.printStream.println("OPERATION CANCELED.\n\n");
                     }
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_CLUSTER.getCommand()) && cmd.length == 1)
@@ -468,51 +587,85 @@ public class MainClass implements Closeable
                     mainClass.removeCluster();
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_ALL.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_ALL.getCommand()) &&
+                        ((cmd.length == 1) || (cmd.length == 2 && cmd[1].equals("skip-disk"))))
                 {
                     mainClass.stopwatch.start();
-                    mainClass.removeAll();
+                    mainClass.removeAll(cmd.length == 2);
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_ENV.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_ENV.getCommand()) &&
+                        ((cmd.length == 1) || (cmd.length == 2 && cmd[1].equals("skip-disk"))))
                 {
                     mainClass.stopwatch.start();
-                    mainClass.removeEnv();
+                    mainClass.removeEnv(cmd.length == 2);
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
                 else if((cmd[0].equalsIgnoreCase(Commands.TEST.getCommand()) || cmd[0].equalsIgnoreCase(Commands.TEST_DEV.getCommand())) && cmd.length == 1)
                 {
                     mainClass.stopwatch.start();
-                    ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false);
                     mainClass.test(cmd[0].equalsIgnoreCase(Commands.TEST_DEV.getCommand()));
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
-                }
-                else if(cmd[0].equalsIgnoreCase(Commands.IP_ADMIN_ADD.getCommand()) && cmd.length > 1)
-                {
-                    mainClass.addIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
-                }
-                else if(cmd[0].equalsIgnoreCase(Commands.IP_ADMIN_REMOVE.getCommand()) && cmd.length > 1)
-                {
-                    mainClass.removeIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
                 }
                 else if((cmd[0].equalsIgnoreCase(Commands.SW_LAUNCH.getCommand()) || cmd[0].equalsIgnoreCase(Commands.SW_LAUNCH_DEV.getCommand())) &&
                         cmd.length == 1)
                 {
-                    ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false);
                     mainClass.launchSW(cmd[0].equalsIgnoreCase(Commands.SW_LAUNCH_DEV.getCommand()));
                 }
                 else if((cmd[0].equalsIgnoreCase(Commands.SW_STOP.getCommand()) || cmd[0].equalsIgnoreCase(Commands.SW_STOP_DEV.getCommand())) &&
                         cmd.length == 1)
                 {
-                    ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false);
                     mainClass.stopSW(cmd[0].equalsIgnoreCase(Commands.SW_STOP_DEV.getCommand()));
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.SW_UPDATE.getCommand()) && cmd.length == 1)
                 {
                     mainClass.stopwatch.start();
-                    ClientProcedures.prepareToolComponents(config, mainClass.tempFolderFile.getAbsolutePath(), mainClass.flavorApi, false);
                     mainClass.updateSW();
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_ADD.getCommand()) && cmd.length > 1)
+                {
+                    mainClass.addIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi, true);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_REMOVE.getCommand()) && cmd.length > 1)
+                {
+                    mainClass.removeIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_LIST.getCommand()) && cmd.length == 1)
+                {
+                    mainClass.listIpMasterAccess(mainClass.securityGroupApi);
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.EXEC_BASTION.getCommand()) && cmd.length > 1)
+                {
+                    if(mainClass.bastion == null && !mainClass.initBastionReference())
+                    {
+                        System.out.println("Cannot execute, BASTION NOT FOUND.\n");
+                    }
+                    else
+                    {
+                        mainClass.stopwatch.start();
+                        //System.out.println(line.replace(Commands.EXEC_BASTION.getCommand(), ""));
+                        Utils.sshExecutor(mainClass.ssh, config.getUserName(), Utils.getServerPublicIp(mainClass.bastion, config.getNetworkName()),
+                                line.replace(Commands.EXEC_BASTION.getCommand(), ""));
+                        mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
+                    }
+                }
+                else if(cmd[0].equalsIgnoreCase(Commands.EXEC_MASTER.getCommand()) && cmd.length > 1)
+                {
+                    if(mainClass.bastion == null && !mainClass.initBastionReference())
+                    {
+                        System.out.println("Cannot execute, BASTION NOT FOUND.\n");
+                    }
+                    else if(mainClass.getMasterReference(config.getClusterName()) == null)
+                    {
+                        System.out.println("Cannot execute, MASTER NOT FOUND.\n");
+                    }
+                    else
+                    {
+                        mainClass.stopwatch.start();
+                        mainClass.executeOnMaster(line.replace(Commands.EXEC_MASTER.getCommand(), ""));
+                        mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
+                    }
                 }
                 else
                 {
@@ -520,12 +673,29 @@ public class MainClass implements Closeable
                 }
             }
             reader.flush();
+            reader.close();
+            mainClass.printStream.flush();
+            mainClass.printStream.close();
+            mainClass.printStreamTee.flush();
+            mainClass.printStreamTee.close();
+            mainClass.logsStream.flush();
+            mainClass.logsStream.close();
         }
         catch (IOException e)
         {
             e.printStackTrace();
             exit(1);
         }
+    }
+
+    private static void printInvalidCommandMessage(PrintStream out)
+    {
+        out.println("\nInvalid command.\n");
+    }
+
+    private static void printInvalidCommandMessage(PrintWriter out)
+    {
+        out.println("\nInvalid command.\n");
     }
 
 
@@ -610,6 +780,7 @@ public class MainClass implements Closeable
 
     private void test(boolean devScriptsUpdate)
     {
+        ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, false);
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
@@ -638,6 +809,7 @@ public class MainClass implements Closeable
 
     private void launchSW(boolean devScriptsUpdate)
     {
+        ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, false);
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
@@ -665,6 +837,7 @@ public class MainClass implements Closeable
 
     private void stopSW(boolean devScriptsUpdate)
     {
+        ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, false);
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
@@ -693,6 +866,7 @@ public class MainClass implements Closeable
     private void updateSW()
     {
         Utils.printTimestampedMessage(System.out, "\n", "SW-UPDATE: STARTED.", "\n");
+        ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, false);
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
@@ -719,20 +893,23 @@ public class MainClass implements Closeable
         }
     }
 
-    private void removeAll()
+    private void removeAll(boolean skipDisk)
     {
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ALL: STARTED.", "\n");
         this.removeCluster();
-        this.removeEnv();
+        this.removeEnv(skipDisk);
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ALL: FINISHED.", "\n");
     }
 
-    private void removeEnv()
+    private void removeEnv(boolean skipDisk)
     {
         this.initBastionReference();
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ENV: STARTED.", "\n");
-        ClientProceduresRemoval.removeSwCaches(ssh, config, volumeApi, volumeAttachmentApi,  bastion, true);
-        System.out.println();
+        if(!skipDisk)
+        {
+            ClientProceduresRemoval.removeSwCaches(ssh, config, volumeApi, volumeAttachmentApi,  bastion, true);
+            System.out.println();
+        }
         ClientProceduresRemoval.removeBastion(config, serverApi, floatingIPApi, bastion);
         System.out.println();
         bastion = null;
@@ -802,92 +979,271 @@ public class MainClass implements Closeable
         Utils.printTimestampedMessage(System.out, "\n", "Launching this JAR on Bastion...", "\n");
         String commands =
                 "java -jar Metapipe-cPouta.jar " +
-                        "username=" + this.userName + " password=" + this.password + " _bastion-routine=" + mode + " 2>&1;";
+                        "username=" + this.userName + " password=" + this.password + " _bastion-routine=" + mode + " ;";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         System.out.println("This JAR has finished all procedures on Bastion.");
     }
 
 
 
-    static void addIpMasterAccess(List<String> newIps, SecurityGroupApi securityGroupApi)
+    static void addIpMasterAccess(String ip, SecurityGroupApi securityGroupApi, boolean addToConfigEvenIfMasterSgNotExists)
     {
-        SecurityGroup masterGroup = null;
-        List<String> ips;
-        for(SecurityGroup sg : securityGroupApi.list())
+        addIpMasterAccess(Arrays.asList(ip), securityGroupApi, addToConfigEvenIfMasterSgNotExists);
+    }
+
+    static void addIpMasterAccess(List<String> newIps, SecurityGroupApi securityGroupApi, boolean addToConfigEvenIfMasterSgNotExists)
+    {
+        System.out.println("\n");
+        SecurityGroup masterGroup = getMasterSecurityGroup(securityGroupApi);
+        if(!addToConfigEvenIfMasterSgNotExists && masterGroup == null)
         {
-            if(sg.getName().equals(config.getClusterName() + "-master"))
-            {
-                masterGroup = sg;
-            }
-        }
-        if(masterGroup == null)
-        {
-            System.out.println("Master security group not found!");
             return;
         }
+        addIpMasterAccessOnOS(newIps, securityGroupApi, false);
         config.addIpAdmins(newIps);
-        ips = config.getIpAdmins();
+        System.out.println("\n");
+    }
+
+    static void addIpMasterAccessOnOS(String ip, SecurityGroupApi securityGroupApi, boolean checkIpExistsInConfig)
+    {
+        addIpMasterAccessOnOS(Arrays.asList(ip), securityGroupApi, checkIpExistsInConfig);
+    }
+
+    static void addIpMasterAccessOnOS(List<String> ips, SecurityGroupApi securityGroupApi, boolean checkIpExistsInConfig)
+    {
+        SecurityGroup masterGroup = getMasterSecurityGroup(securityGroupApi);
+        List<String> cidrList;
+        Pair<String, String> pair;
+        SecurityGroupRule tempRule1, tempRule2;
+        if(masterGroup == null)
+        {
+            return;
+        }
         for(String ip : ips)
         {
-            try
+            if(checkIpExistsInConfig && !config.getIpAdmins().contains(ip))
             {
-                securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
-                        Ingress.builder().fromPort(8080).toPort(8080).ipProtocol(IpProtocol.TCP).build(),
-                        ip + "/32");
-                securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
-                        Ingress.builder().fromPort(4040).toPort(4050).ipProtocol(IpProtocol.TCP).build(),
-                        ip + "/32");
+                System.out.println("Admin IP address " + ip + " was not found in config. This should not have happened.");
             }
-            catch (IllegalStateException e)
+            else
             {
-                System.out.println("Security rule for accessing Master already exists.");
+                pair = config.getIpAdminsPairFromString(ip);
+                cidrList = Utils.range2cidrlist(pair.getKey(), pair.getValue());
+                for(String cidr : cidrList)
+                {
+                    try
+                    {
+                        tempRule1 = securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
+                                Ingress.builder().fromPort(8080).toPort(8080).ipProtocol(IpProtocol.TCP).build(), cidr);
+                        tempRule2 = securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
+                                Ingress.builder().fromPort(4040).toPort(4050).ipProtocol(IpProtocol.TCP).build(), cidr);
+                        System.out.println("CIDR added in OpenStack: " + cidr);
+                        System.out.println("Added rule: " + tempRule1.toString());
+                        System.out.println("Added rule: " + tempRule2.toString());
+                    }
+                    catch (IllegalStateException e)
+                    {
+                        System.out.print("Security rule for accessing Master already exists. ");
+                    }
+                }
+                System.out.println();
+                System.out.println("Admin IP address in OpenStack, adding finished: " + ip);
+                System.out.println();
             }
-            System.out.println("Admin IP address added: " + ip);
         }
     }
 
     static void removeIpMasterAccess(List<String> ips, SecurityGroupApi securityGroupApi)
     {
-        SecurityGroup masterGroup = null;
-        for(SecurityGroup sg : securityGroupApi.list())
+        System.out.println("\n");
+        SecurityGroup masterGroup = getMasterSecurityGroup(securityGroupApi);
+        List<String> cidrList;
+        Pair<String, String> pair;
+        boolean success = false;
+        if(masterGroup != null)
         {
-            if(sg.getName().equals(config.getClusterName() + "-master"))
+            for(String ip : ips)
             {
-                masterGroup = sg;
+                pair = config.getIpAdminsPairFromString(ip);
+                cidrList = Utils.range2cidrlist(pair.getKey(), pair.getValue());
+                for(String cidr : cidrList)
+                {
+                    if(masterGroup.getRules() != null)
+                    {
+                        for(SecurityGroupRule rule : masterGroup.getRules())
+                        {
+                            if(rule.getIpRange().equals(cidr))
+                            {
+                                success = success | securityGroupApi.deleteRule(rule.getId());
+                                System.out.println("CIDR removed in OpenStack: " + cidr);
+                                System.out.println("Deleted rule: " + rule.toString());
+                            }
+                        }
+                        if(success)
+                        {
+                            success = false;
+                        }
+                        else
+                        {
+                            System.out.println("Serurity rule for the CIDR " + cidr  + " was not found within security group " + masterGroup.getName() + ".");
+                        }
+                    }
+                    else
+                    {
+                        System.out.println("No serurity rules found within security group " + masterGroup.getName() + ".");
+                    }
+
+                }
+                System.out.println();
+                System.out.println("Admin IP address in OpenStack, removal finished: " + ip);
+                System.out.println();
             }
         }
+        config.removeIpAdmins(ips);
+        System.out.println("\n");
+    }
+
+    static void addIpMasterAccessOnOS_Old(List<String> ips, SecurityGroupApi securityGroupApi, boolean checkIpExistsInConfig)
+    {
+        SecurityGroup masterGroup = getMasterSecurityGroup(securityGroupApi);
+        String suffix;
         if(masterGroup == null)
         {
-            System.out.println("Master security group not found!");
             return;
         }
         for(String ip : ips)
         {
-            for(SecurityGroupRule rule : masterGroup.getRules())
+            if(checkIpExistsInConfig && !config.getIpAdmins().contains(ip))
             {
-                if(rule.getIpRange().contains(ip))
+                System.out.println("Admin IP address " + ip + " was not found in config. This should not have happened.");
+            }
+            else
+            {
+                try
                 {
-                    securityGroupApi.deleteRule(rule.getId());
-                    System.out.println("Admin IP address removed: " + ip);
+                    if(ip.equals("0.0.0.0"))
+                    {
+                        suffix = "/0";
+                    }
+                    else
+                    {
+                        suffix = "/32";
+                    }
+                    securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
+                            Ingress.builder().fromPort(8080).toPort(8080).ipProtocol(IpProtocol.TCP).build(),
+                            ip + suffix);
+                    securityGroupApi.createRuleAllowingCidrBlock(masterGroup.getId(),
+                            Ingress.builder().fromPort(4040).toPort(4045).ipProtocol(IpProtocol.TCP).build(),
+                            ip + suffix);
+                    System.out.println("Admin IP address added in OpenStack: " + ip);
+                }
+                catch (IllegalStateException e)
+                {
+                    System.out.print("Security rule for accessing Master already exists. ");
                 }
             }
-            config.removeIpAdmins(ips);
         }
+    }
+
+    static void removeIpMasterAccessOld(List<String> ips, SecurityGroupApi securityGroupApi)
+    {
+        System.out.println();
+        SecurityGroup masterGroup = getMasterSecurityGroup(securityGroupApi);
+        boolean success = false;
+        if(masterGroup != null)
+        {
+            for(String ip : ips)
+            {
+                for(SecurityGroupRule rule : masterGroup.getRules())
+                {
+                    if(rule.getIpRange().contains(ip))
+                    {
+                        success = success | securityGroupApi.deleteRule(rule.getId());
+                        System.out.println("Admin IP address removed: " + ip + ". Deleted rule: " + rule.toString());
+                    }
+                }
+                if(success)
+                {
+                    success = false;
+                }
+                else
+                {
+                    System.out.println("Serurity rule for the IP address " + ip  + " was not found within security group " + masterGroup.getName() + ".");
+                }
+            }
+        }
+        config.removeIpAdmins(ips);
+        System.out.println();
+    }
+
+    static void listIpMasterAccess(SecurityGroupApi securityGroupApi)
+    {
+        System.out.println();
+        SecurityGroup masterGroup;
+        Pair<String, String> pair;
+        Set<SecurityGroupRule> masterRules;
+        List<String> tempRules = new ArrayList<String>();
+        System.out.println(config.getIpAdmins().size() + " IPs (Config):");
+        for(String ip : config.getIpAdmins())
+        {
+            pair = config.getIpAdminsPairFromString(ip);
+            if(pair.getKey().equals(pair.getValue()))
+            {
+                System.out.println("single:\t" + pair.getKey());
+            }
+            else
+            {
+                System.out.println("range:\t" + pair.getKey() + " - " + pair.getValue());
+            }
+        }
+        System.out.println();
+        masterGroup = getMasterSecurityGroup(securityGroupApi);
+        if(masterGroup != null)
+        {
+            masterRules = masterGroup.getRules();
+            for(SecurityGroupRule rule : masterRules)
+            {
+                if(!tempRules.contains(rule.getIpRange()))
+                {
+                    tempRules.add(rule.getIpRange());
+                }
+            }
+            System.out.println(tempRules.size() + " CIDRs (OpenStack):");
+            for(String rule : tempRules)
+            {
+                System.out.println(rule);
+            }
+        }
+        System.out.println();
+    }
+
+    static SecurityGroup getMasterSecurityGroup(SecurityGroupApi securityGroupApi)
+    {
+        for(SecurityGroup sg : securityGroupApi.list())
+        {
+            if(sg.getName().equals(config.getClusterName() + "-master"))
+            {
+                return sg;
+            }
+        }
+        System.out.println("Master security group not found.");
+        return null;
     }
 
 
 
     private void configValidateWithNova(Configuration config)
     {
-        System.out.println("Validating 'config.yml'...");
+        System.out.print("Validating 'config.yml' ...");
         String errors = getValidWithNovaErrors(config);
         if(!errors.isEmpty())
         {
             //throw new IllegalStateException();
+            System.out.println();
             System.out.println("\n" + errors + "\n");
             exit(1);
         }
-        System.out.println("Validation finished.");
+        System.out.println("... Done.");
     }
 
     private String getValidWithNovaErrors(Configuration config)
@@ -916,6 +1272,34 @@ public class MainClass implements Closeable
             error += Configuration.errorMessagePrefix + "getIoHddSsdNodes flavor\n";;
         }
         return error;
+    }
+
+
+
+    private void executeOnMaster(String commands)
+    {
+        String tempScriptName = "tempScript.sh";
+        String tempScriptPath = tempFolderFile.getAbsolutePath() + "/" + tempScriptName;
+
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(tempScriptPath, "UTF-8");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return;
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+            return;
+        }
+        writer.println();
+        writer.println(commands);
+        writer.println();
+        writer.close();
+        Utils.sshCopier(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()),
+                new String[]{tempScriptPath}, tempFolderFile.getName());
+
+        runBastionRoutine(Commands.EXEC_MASTER.getCommand().replace(">", "") + " '~/" + tempFolderFile.getName() + "/" + tempScriptName + "'");
+        new File(tempScriptPath).delete();
     }
 
 
@@ -1011,9 +1395,17 @@ public class MainClass implements Closeable
         {
             out.println("\n" + mainClass.osAuthOnBastionCommands + "\n");
         }
+        else if(cmd[0].equals("-tst") && cmd.length == 1)
+        {
+            config = Configuration.loadConfig();
+//            out.println("\n" + Utils.range2cidrlist("129.242.0.0", "129.242.255.255") + "\n");
+//            out.println("\n" + Utils.range2cidrlist("0.0.0.0", "0.0.0.0") + "\n");
+//            out.println("\n" + Utils.range2cidrlist("0.0.0.0", "255.255.255.255") + "\n");
+            mainClass.initOutStreamAndLogs();
+        }
         else
         {
-            out.println("\nInvalid command.\n");
+            printInvalidCommandMessage(out);
         }
     }
 

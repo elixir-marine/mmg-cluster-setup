@@ -2,12 +2,26 @@
   
 |  
   
-Command-line tool for setting up META-pipe on openstack-based cPouta (pouta.csc.fi). Runs complex procedures with 1 or few commands.  
-In development.  
-Was tested on (K)Ubuntu 12.04/14.04/16.04.  
+Command-line tool for setting up processing software (META-pipe) on OpenStack (cPouta, pouta.csc.fi). Runs complex procedures with 1 or few commands.  
+The tool was tested on (K)Ubuntu 12.04/14.04/16.04.  
+Current META-pipe version used by the tool: v40 (executable) / v13 (dependencies).
   
 |  
   
+README structure:
+- Requirements.
+- What the tool can do.
+- Current limitations / 2-be-done in the future.
+- Structure of the tool folder "v4".
+- Good 2 know before using the tool.
+- Commands.
+- Algorithm Details.
+  
+|  
+  
+|  
+  
+
 Requirements:
 - Linux. Preferably (K)Ubuntu, v12.04 or higher.
 - OpenStack username/password, OpenStack active project with enough available resources.
@@ -16,7 +30,7 @@ Requirements:
   
 |  
   
-What it can do:
+What the tool can do:
 - Set up OpenStack environment.
 - Prepare processing software (META-pipe) for being used by a cluster.
 - Provision cluster, virtual disks, configure security and NFS for the cluster.
@@ -25,7 +39,7 @@ What it can do:
 - Deprovision existing cluster, cleanup everything.
 - Vast amount of logging/debugging information displayed and saved into text files.
 - Display information such as quota/overview, how much time it has taken to run a procedure, etc.
-- For more info, see "Commands" and "Details" below.
+- For more info, see "Commands" and "Algorithm Details" below.
   
 |  
   
@@ -33,46 +47,56 @@ Current limitations / 2-be-done in the future:
 - The use of anti-affinity groups is disabled until it is implemented in Ansible 2.2.
 - Only 1 bastion/cluster can exist per time.
 - META-pipe assembly step is not available yet.
+- When the processing software is launched on the cluster, the tool will print all its output, until the user presses Ctrl+C. To stop the sw, user must launch the tool again to run the stop command. And to continue watching the sw output after Ctrl+C, the user must stop and re-launch the sw.
   
 |  
   
 Structure of the tool folder "v4":
 - "out": ready-to-use tool.
-  - "config.yml": The file to be modified by user. Important that it is set up correctly.
-  - "Metapipe-cPouta.jar": the executable file.
-  - "logs": the folder where logs are stored.
-  - "_disk.sh": a helper script for disk operations on the volumes attached to the VM where the helper runs.
-  - "_setup_cluster.sh" & "_init.sh": small script that is meant to run on master to set up Spark Standalone.
-  - "cluster_test.py": test script executed on the cluster when the cluster is created and configured. Can be possibly replaced with own script.
-  - "*_firefox.sh" (generated during cluster creation): executable weblink-shortcut that opens Spark web UI pages (4040 and 8080) in Firefox.
+  - "config.yml": tool configuration file, to be set up by user.
+  - "Launcher.desktop": tool launcher for Ubuntu and CentOS - double-click to run the tool.
+  - "Metapipe-cPouta.jar": tool executable.
+  - "logs": the folder where logs are stored. Logs' name contains date/time when the tool session was started.
+  - "temp": temporary files created by the tool.
   - "pouta-ansible-cluster" folder: cluster provision/deprovision ansible script by CSC-IT-Center-for-Science, version of 06.03.2017, modified.
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster
     - https://github.com/CSC-IT-Center-for-Science/pouta-ansible-cluster/blob/feature/heterogenous_vm_support%2324/playbooks/hortonworks/README.md
-  - "pouta-ansible-cluster.changed-files.txt": the list of modified "pouta-ansible-cluster" files.
-  - "sw_files": Contains Piping software (not present on the repo) and small bash-scripts, some of which are required for the sw setup:
-    - "_init.sh": init necessary variables.
+  - "sw_files": Contains processing-software-related scripts; the following scripts are required:
+    - "_init.sh": init necessary variables, is modified by the tool.
     - "_prepare.sh": meant to run processing software preparation routines (unpacking, placement, configuration).
     - "_run.sh": launches installed processing sw.
     - "_stop.sh": stops Spark processes, kills if they could not be stopped.
     - "_test.sh": validates installed sw.
+  - "pouta-ansible-cluster.changed-files.txt": list of files in "pouta-ansible-cluster" folder which were modified and differ from the original CSC repo.
+  - "_init.sh": init necessary variables, is modified by the tool.
+  - "_disk.sh": a helper script for disk operations on the volumes attached to the VM where the script runs.
+  - "_setup_cluster.sh": sets up Spark Standalone, to be executed on master.
+  - "_disablePasswordAuth.sh": disables password authentication on the machine where the script is executed.
+  - "cluster_test.py": test script executed on the cluster when the cluster is created and configured. Can be possibly replaced with own script.
+  - "Launcher.sh" - launcher component.
+  - "{clusterName}_firefox.sh": executable weblink shortcut that opens Spark web UI pages (4040 and 8080) in Firefox, is generated during cluster creation.
   - other files/folders: other tool components.
 - other files/folders: source files.
   
 |  
   
-Good 2 know:
-- Make sure "config.yml" it is configured correctly and according to the needs. Pay attention to the comments in the file. If smth is wrong, the tool should detect it.
+Good 2 know before using the tool:
+- Make sure "config.yml" is configured correctly and according to the needs. Pay attention to the comments in the file. When the tool is launched, it runs config validation.
 - How to run:
   - Method 1:
-    - Open terminal in the tool folder, run "java -jar Metapipe-cPouta.jar".
-    - The user will be prompted for CSC username and password.
+    - Double-click "Launcher.desktop".
+    - If the launcher is run for the first time, it will prompt for OpenStack username and password, and remember them.
+	- If the tool was launched with incorrect credentials, remove the file "temp/login" and re-run the launcher.
   - Method 2:
+    - Open terminal in the tool folder, run "java -jar Metapipe-cPouta.jar".
+    - The user will be prompted for OpenStack username and password.
+  - Method 3:
     - Open terminal in the tool folder, run "java -jar Metapipe-cPouta.jar username=username password=password".
 - When the tool is launched, the list of all implemented commands is shown.
 - The tool has terminal-like autocomplete, press Tab when command is partially entered.
-- Before running a complex operation, the tool validates whether the project has enough resources available - if yes, the operation continues, if no, it is cancelled. However not all resource information might be available via OS API, in this case the resource is ignored during the validation and the user should check it manually with help of OpenStack project web-pages. In the overview table in the tool, such resources are shown as "n/a".
-- Output from each tool session is written to a separate log file. Logs can be quite big, might be good to periodically clean up in the folder.
-- The duration of "create*", "remove*", "test" and "sw-update" is printed when execution finishes.
+- Before running a complex operation, the tool validates whether the project has enough resources available. If yes, the operation continues. If no, it is cancelled. However not all resource information might be available via OS API, in this case the resource is ignored during the validation and the user should check it manually with help of OpenStack project web-pages. In the "overview" table of the tool, such resources are shown as "n/a".
+- Output from each tool session is written to a separate log file. Logs can be quite big. If auto-delition of older logs was disabled in the config, it might be good to clean the logs folder manually sometimes.
+- The duration of "create-*", "remove-*", "test", "sw-update" and "execute-*" is printed in the end when the process is finished.
   
 |  
   
@@ -106,10 +130,16 @@ Commands:
   To be used if ssh-session to Bastion hangs during "remove-all". Removes bastion, OS setups, SW-disk; config.yml cleanup. Cluster deprovision skipped.
 - "remove-create-cluster":
   "remove-cluster" + "create-cluster".
-- "ip-admin-add X.X.X.X":
-  Opens access to Ambari cluster management web-gui to the provided IP address or addresses.
-- "ip-admin-remove X.X.X.X":
-  The opposite of "ip-admin-add X.X.X.X".
+- "admin-add X.X.X.X" (1), "admin-add X.X.X.X X.X.X.X ..." (2), "admin-add X.X.X.X-X.X.X.X" (3), "admin-add X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ..." (4):
+  Opens access to Spark cluster web UI for an IP address (1), addresses (2), address range (3), address ranges (4). To open access for everyone, run "ip-admin-add 0.0.0.0-255.255.255.255".
+- "admin-remove X.X.X.X" (1), "admin-remove X.X.X.X X.X.X.X ..." (2), "admin-remove X.X.X.X-X.X.X.X" (3), "admin-remove X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ..." (4):
+  Remove IP adress(es)/range(s) from admins.
+- 'admin-list':
+  List admin IPs and OpenStack CIDRs.
+- "execute-bastion>>> command " (1), "execute-bastion>>> command ; command ; ... " (2):
+  Execute a Bash command (1) or a single-line set of Bash commands (2) on Bastion. Both single and double quotes are allowed.
+- "execute-master>>> command " (1), "execute-master>>> command ; command ; ... " (2):
+  Execute a Bash command (1) or a single-line set of Bash commands (2) on Master. Both single and double quotes are allowed.
   
 |  
   
@@ -207,8 +237,9 @@ Algorithm Details (the variable names {X} are taken from config.yml):
 
 "create-all":
 - Start stopwatch.
-- "create-env".
-- "create-cluster".
+- Reload all resource stats/info, check whether required resources amount is available, confinue if yes.
+- "create-env" (skipped start/stop stopwatch & resource stats/info reload).
+- "create-cluster" (skipped start/stop stopwatch & resource stats/info reload).
 - Stop stopwatch, print the time spent on the execution.
 
 "test", "test-dev":
@@ -263,8 +294,8 @@ Algorithm Details (the variable names {X} are taken from config.yml):
 
 "remove-all":
 - Start stopwatch.
-- "remove-cluster".
-- "remove-env".
+- "remove-cluster" (skipped start/stop stopwatch).
+- "remove-env" (skipped start/stop stopwatch).
 - Stop stopwatch, print the time spent on the execution.
 
 "remove-env":
@@ -283,8 +314,8 @@ Algorithm Details (the variable names {X} are taken from config.yml):
 
 "remove-create-cluster":
 - Start stopwatch.
-- "remove-cluster".
-- "create-cluster".
+- "remove-cluster" (skipped start/stop stopwatch).
+- "create-cluster" (skipped start/stop stopwatch).
 - Stop stopwatch, print the time spent on the execution.
 
 

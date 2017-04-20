@@ -59,10 +59,14 @@ swJobTag: csc-AAA
 swArtifactsAuthRequired: true
 swArtifactsUsername:
 swArtifactsPassword:
-swArtifactsFilesExec: https://artifacts.sfb.uit.no/jenkins/newpan_tools/39/workflow-assembly-0.1-SNAPSHOT.jar
+swArtifactsFilesExec: https://artifacts.sfb.uit.no/jenkins/newpan_tools/40/workflow-assembly-0.1-SNAPSHOT.jar
 swArtifactsFileDepsArc: https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/13/metapipe-dependencies.tar.gz
 swArtifactsFilesEtc:
 #  -
+
+# Maximal number of log files in the "logs" folder.
+# For a limited number of logs, set to a positive number. For no logs, set to 0. For unlimited number of logs, set to -1.
+maxLogs: 10
 
 
 
@@ -74,7 +78,12 @@ bastionAvailZone: nova
 
 bastionKeyName: my_bastion_key
 
-# Can add other admins' IPs here. The IP of the machine that executes the tool will be added automatically.
+# Admins' IPs. The IP of the machine that runs the tool will be added automatically during cluster creation.
+# Syntax: X.X.X.X (single IP), X.X.X.X-X.X.X.X (IP range)
+# Everyone:                           0.0.0.0-255.255.255.255
+# UiT network:                        129.242.0.0-129.242.255.255
+# CSC network:                        86.50.0.0-86.50.255.255, 193.166.0.0-193.166.255.255, 193.167.0.0-193.167.255.255
+# CSC portal on DataCenter Finland:   89.250.59.9
 ipAdmins:
 
 ipCheck: http://checkip.amazonaws.com

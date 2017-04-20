@@ -2,8 +2,12 @@ package no.uit.metapipe.cpouta;
 
 import com.jcraft.jsch.JSch;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
+import org.slf4j.helpers.Util;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class BastionRoutine
 {
@@ -12,7 +16,8 @@ public class BastionRoutine
 
     static void bastionRoutine(String index, JSch ssh, Configuration config, Server master)
     {
-        System.out.println("\nBastion routine started...\n\n");
+        System.out.println("\nBastion routine started with argument '" + index + "'\n\n");
+        String execMasterIndex = MainClass.Commands.EXEC_MASTER.getCommand().replace(">", "");
         if(index.equals(MainClass.Commands.CREATE_CLUSTER.getCommand()))
         {
             prepareMaster(ssh, config, master);
@@ -21,6 +26,10 @@ public class BastionRoutine
             testCluster(ssh, config, master);
             setupSwOnCluster(ssh, config, master);
             testSW(ssh, config, master);
+        }
+        else if(index.startsWith(execMasterIndex))
+        {
+            executeOnMaster(ssh, config, master, index.replace(execMasterIndex, "").trim());
         }
         else
         {
@@ -50,14 +59,13 @@ public class BastionRoutine
             }
             return;
         }
-        System.out.println("\nBastion routine complete.\n\n");
+        System.out.println("\nBastion routine complete.\n");
     }
 
     static void prepareMaster(JSch ssh, Configuration config, Server master)
     {
         System.out.println("\nStarted preparing Master...");
-        String commands = "tar -xf arc.tar --overwrite 2>&1;";
-        commands = "sudo yum install -y java-1.8.0-openjdk-devel;";
+        String commands = "sudo yum install -y java-1.8.0-openjdk-devel;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master, config.getNetworkName()),
                 commands);
@@ -85,10 +93,8 @@ public class BastionRoutine
     static void setupCluster(JSch ssh, Configuration config, Server master)
     {
         System.out.println("\nLaunching Cluster setup on Master...");
-        String commands = "source " + Utils.getFileNameFromPath(config.getXternFiles().get("disablePasswordAuth")) +
-                " 2>&1;";
-        commands += "source " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScript")) +
-                " 2>&1;";
+        String commands = "source " + Utils.getFileNameFromPath(config.getXternFiles().get("disablePasswordAuth")) + " 2>&1;";
+        commands += "source " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScript")) + " 2>&1;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master, config.getNetworkName()), commands);
         System.out.println("Cluster setup on Master complete.\n");
@@ -145,6 +151,34 @@ public class BastionRoutine
         String commands =
                 "cd " + config.getNfsSwMainVolumeMount() + "/" + config.getSwFilesDirName() + ";" +
                 "source " + config.getSwStopScript() + " 2>&1;";
+        Utils.sshExecutor(ssh, config.getUserName(),
+                Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
+    }
+
+    static void executeOnMaster(JSch ssh, Configuration config, Server master, String tempScriptPath)
+    {
+        System.out.println("\nExecuting commands on Master...");
+//        String commands =
+//                "source " + tempScriptPath + " ;" +
+//                "rm " + tempScriptPath + " ;";
+//        Utils.sshCopier(ssh, config.getUserName(),
+//                Utils.getServerPrivateIp(master, config.getNetworkName()),
+//                new String[]{tempScriptPath}, tempScriptPath.substring(0, tempScriptPath.lastIndexOf("/")), false, true);
+//        Utils.sshExecutor(ssh, config.getUserName(),
+//                Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
+//        new File(tempScriptPath.replaceFirst("~/", System.getProperty("user.home") + "/")).delete();
+        String commands = "";
+        try
+        {
+            commands = new String(
+                    Files.readAllBytes(Paths.get(tempScriptPath.replaceFirst("~/", System.getProperty("user.home") + "/"))),
+                    "UTF-8");
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            return;
+        }
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
     }

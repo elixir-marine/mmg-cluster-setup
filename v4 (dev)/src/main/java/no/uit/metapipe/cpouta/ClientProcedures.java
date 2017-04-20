@@ -430,55 +430,60 @@ class ClientProcedures
 
     static void prepareToolComponents(Configuration config, String tempFolder, FlavorApi flavorApi, boolean all)
     {
-        System.out.println("\nUpdating tool components according to the config...");
+        prepareToolComponents(config, tempFolder, flavorApi, all, false);
+    }
+
+    static void prepareToolComponents(Configuration config, String tempFolder, FlavorApi flavorApi, boolean all, boolean isSilent)
+    {
+        if(!isSilent)
+        {
+            System.out.println();
+        }
+        System.out.print("Updating tool components according to the config ...");
+        if(!isSilent)
+        {
+            System.out.println();
+        }
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "SPARK_JOB_TAG",
                 "\"" + config.getSwJobTag() + "\"",
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "SW_EXECUTABLE",
                 "\"" + config.getSwExecutable() + "\"",
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "SW_MAIN_DIR",
                 Utils.getFileNameFromPath(config.getNfsSwMainVolumeMount()),
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "SW_TMP_DIR",
                 Utils.getFileNameFromPath(config.getNfsSwTmpVolumeMount()),
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "SW_FILES_DIR_NAME",
                 "\"" + config.getSwFilesDirName() + "\"",
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "ARTIFACTS_FILES_EXEC",
                 "\"" + config.getSwArtifactsFilesExec() + "\"",
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sw")) + "/" + config.getSwInitScript(),
                 "ARTIFACTS_FILES_DEPS_ARC",
                 "\"" + config.getSwArtifactsFileDepsArc() + "\"",
-                "=",
-                true);
+                "=", true, isSilent);
         Utils.updateFileValue(
                 Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                 "SPARK_FILES_DIR",
                 config.getSparkFilesDir(),
-                "=",
-                true);
+                "=", true, isSilent);
         if(all)
         {
             int newVal;
@@ -488,8 +493,7 @@ class ClientProcedures
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CLUSTER_NAME",
                     "\"" + config.getClusterName() + "\"",
-                    "=",
-                    true);
+                    "=", true, isSilent);
             newVal = (config.getSparkMasterVmCores() == 0) ?
                     Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getVcpus() :
                     config.getSparkMasterVmCores();
@@ -497,8 +501,7 @@ class ClientProcedures
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_MASTER",
                     Integer.toString(newVal),
-                    "=",
-                    true);
+                    "=", true, isSilent);
             newVal = (config.getSparkMasterVmRam() == 0) ?
                     Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getRam() :
                     config.getSparkMasterVmRam();
@@ -506,8 +509,7 @@ class ClientProcedures
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "RAM_MASTER",
                     Integer.toString(newVal),
-                    "=",
-                    true);
+                    "=", true, isSilent);
             if(config.getIoHddSsdNodes().get("numNodes").equals("0"))
             {
                 tempFlavor = Utils.getFlavorByName(flavorApi, config.getRegularHddNodes().get("flavor"));
@@ -521,24 +523,21 @@ class ClientProcedures
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_PER_SLAVE",
                     Integer.toString(newVal),
-                    "=",
-                    true);
+                    "=", true, isSilent);
             newVal = (config.getSparkWorkerVmRam() == 0) ? tempFlavor.getRam() : config.getSparkWorkerVmRam();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "RAM_PER_SLAVE",
                     Integer.toString(newVal),
-                    "=",
-                    true);
+                    "=", true, isSilent);
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_PER_EXECUTOR",
                     Integer.toString(config.getSparkExecutorCores()),
-                    "=",
-                    true);
+                    "=", true, isSilent);
             createClusterVarsFile(config, tempFolder);
         }
-        System.out.println("Tool components modified.\n");
+        System.out.println("... Done.\n");
     }
 
     static void createClusterVarsFile(Configuration config, String tempFolder)
@@ -771,7 +770,7 @@ class ClientProcedures
 
     static void updateToolComponentsOnBastion(JSch ssh, Configuration config, Server bastion, File tempFolder, File logsFolder)
     {
-        System.out.println("Start transferring required files to Bastion...");
+        System.out.println("Start updating tool components on Bastion...");
         TarArchiver aTar = new TarArchiver();
         String commands;
         commands =
@@ -818,9 +817,9 @@ class ClientProcedures
         }
         Utils.sshCopier(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()),
                 new String[]{arc.getAbsolutePath()}, "");
-        commands = "tar -xf arc.tar --overwrite 2>&1;";
+        commands = "tar -xf arc.tar --overwrite;";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
-        System.out.println("Required files are transferred to Bastion.");
+        System.out.println("Tool components are updated on Bastion.");
     }
 
     static void bastionClusterProvisionExecute(JSch ssh, Configuration config, Server bastion, String authCommands)
@@ -1068,7 +1067,9 @@ class ClientProcedures
     static void openAdminAccess(Configuration config, SecurityGroupApi securityGroupApi)
     {
         String myIP = "";
-        BufferedReader in = null;
+        BufferedReader in;
+
+        MainClass.addIpMasterAccessOnOS(config.getIpAdmins(), securityGroupApi, false);
         try
         {
             in = new BufferedReader(new InputStreamReader(new URL(config.getIpCheck()).openStream()));
@@ -1076,12 +1077,12 @@ class ClientProcedures
         }
         catch (IOException e)
         {
-            System.out.println(config.getIpCheck() + "doesn't seem to work correctly!");
+            System.out.println(config.getIpCheck() + " doesn't seem to work correctly!");
             e.printStackTrace();
-            exit(1);
+            return;
         }
         System.out.println("Your public IP address: " + myIP);
-        MainClass.addIpMasterAccess(Arrays.asList(myIP), securityGroupApi);
+        MainClass.addIpMasterAccess(myIP, securityGroupApi, false);
     }
 
     static void generateWebGuiLink(String clusterName, String masterPublicIp)

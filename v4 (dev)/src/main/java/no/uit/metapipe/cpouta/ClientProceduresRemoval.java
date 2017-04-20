@@ -4,6 +4,7 @@ import com.google.common.collect.FluentIterable;
 import com.jcraft.jsch.JSch;
 import org.jclouds.http.HttpResponseException;
 import org.jclouds.openstack.cinder.v1.features.SnapshotApi;
+import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.SecurityGroup;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 //import org.jclouds.openstack.nova.v2_0.domain.ServerGroup;
@@ -125,8 +126,10 @@ class ClientProceduresRemoval
     static void removeBastion(Configuration config, ServerApi serverApi, FloatingIPApi floatingIPApi, Server bastion)
     {
         System.out.println("Starting Bastion removing procedure...");
+        FloatingIP f = floatingIPApi.get(config.getBastionFloatingIpId());
         if(bastion != null)
         {
+            floatingIPApi.removeFromServer(f.getIp(), bastion.getId());
             serverApi.delete(bastion.getId());
             while(serverApi.get(bastion.getId()) != null)
             {

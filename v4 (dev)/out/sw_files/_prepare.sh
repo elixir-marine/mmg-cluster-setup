@@ -14,14 +14,18 @@ if [ "$1" == "sw-artifacts-prepare" ]; then
     ARTIFACTS_USERNAME="$2"
     ARTIFACTS_PASSWORD="$3"
     cd /media/$SW_MAIN_DIR
-    sudo mkdir $SW_FILES_DIR_NAME
+    sudo mkdir -p $SW_FILES_DIR_NAME
     cd $SW_FILES_DIR_NAME
     sudo chmod 777 .
     curl -O -u $ARTIFACTS_USERNAME:$ARTIFACTS_PASSWORD $ARTIFACTS_FILES_EXEC
-    curl -u $ARTIFACTS_USERNAME:$ARTIFACTS_PASSWORD $ARTIFACTS_FILES_DEPS_ARC | tar xv -C .
-    # Alternative: tar xvz< <(curl -u $ARTIFACTS_USERNAME:$ARTIFACTS_PASSWORD $ARTIFACTS_FILES_DEPS_ARC)
-    sudo mv package/dist ./metapipe
-    sudo rmdir package
+    if [ ! -d "metapipe" ]; then
+        curl -u $ARTIFACTS_USERNAME:$ARTIFACTS_PASSWORD $ARTIFACTS_FILES_DEPS_ARC | tar xv -C .
+        # Alternative: tar xvz< <(curl -u $ARTIFACTS_USERNAME:$ARTIFACTS_PASSWORD $ARTIFACTS_FILES_DEPS_ARC)
+        sudo mv package/dist ./metapipe
+        sudo rmdir package
+    else
+        echo "Deps directory 'metapipe' exists, skipping downloading/unpacking of deps."
+    fi
     echo "{
       \"metapipeHome\": \"/$SW_PARENT_DIR/$SW_MAIN_DIR/$SW_FILES_DIR_NAME/metapipe\",
       \"metapipeTemp\": \"/$SW_PARENT_DIR/$SW_TMP_DIR/metapipe-tmp\"

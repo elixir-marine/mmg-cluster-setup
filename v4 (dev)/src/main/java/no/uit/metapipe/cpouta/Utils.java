@@ -71,23 +71,36 @@ final class Utils
     static void sshExecutor(JSch ssh, String userName, String ip, String aBigCommandString)
     {
         Session session;
+        Properties props = new Properties();
+        ChannelShell channel;
+        BufferedReader in;
+        PrintStream commandsStream;
+        String suffix = "";
         System.out.println("Starting SSH session to... " + userName + "@" + ip);
+        aBigCommandString = aBigCommandString.trim();
         try {
             session = ssh.getSession(userName, ip);
-            Properties props = new Properties();
             props.put("StrictHostKeyChecking", "no");
             session.setConfig(props);
             session.connect();
-            ChannelExec channel = (ChannelExec)session.openChannel("exec");
-            BufferedReader in = new BufferedReader(new InputStreamReader(channel.getInputStream()));
-            channel.setCommand(aBigCommandString);
+            channel = (ChannelShell)session.openChannel("shell");
+            in = new BufferedReader(new InputStreamReader(channel.getInputStream()));
+            //channel.setPtyType(aBigCommandString);
             channel.connect();
             System.out.println("Executing commands... ");
+            if(!aBigCommandString.endsWith(";"))
+            {
+                suffix = ";";
+            }
+            suffix += " exit;";
+            commandsStream = new PrintStream(channel.getOutputStream(), true);
+            commandsStream.println(aBigCommandString + suffix);
             String msg;
             while((msg = in.readLine()) != null)
             {
                 System.out.println(msg);
             }
+            System.out.println();
             channel.disconnect();
             session.disconnect();
             System.out.println("SSH session over.");
@@ -123,6 +136,33 @@ final class Utils
         }
     }
 
+//    static String mergeStreams4OneCommand(String command)
+//    {
+//        String res = command;
+//        if(res.endsWith(" ;"))
+//        {
+//            res.replace(" ;", "");
+//        }
+//        else if(res.endsWith(";"))
+//        {
+//            res.replace(";", "");
+//        }
+//        //res = res + " 2>&1;";
+//        res = res + ";";
+//        return res;
+//    }
+//
+//    static String mergeStreams4ManyCommands(String commands)
+//    {
+//        List<String> commandsList = Arrays.asList(commands.split(";"));
+//        String res = "";
+//        for(String s : commandsList)
+//        {
+//            res += mergeStreams4OneCommand(s.trim());
+//        }
+//        return res;
+//    }
+
     static void sshCopier(JSch ssh, String userName, String ip, String[] src, String dest)
     {
         sshCopier(ssh, userName, ip, src, dest, true, true);
@@ -137,7 +177,7 @@ final class Utils
             File f;
             String tempDir;
             String commands;
-            String[] folders = dest.split("/");
+            String[] folders;
             Properties props = new Properties();
             session = ssh.getSession(userName, ip);
             props.put("StrictHostKeyChecking", "no");
@@ -146,6 +186,13 @@ final class Utils
             ChannelSftp channel = (ChannelSftp)session.openChannel("sftp");
             channel.connect();
             System.out.println("Copying files... ");
+            System.out.println("SrcArg: " + String.join(", ", src));
+            System.out.println("DestArg: " + dest);
+            if(dest.startsWith("~"))
+            {
+                dest = channel.getHome().substring(1) + "/" + dest.substring(2);
+            }
+            folders = dest.split("/");
             String startingPlace;
             if(startAtHome)
                 startingPlace = channel.getHome() + "/";
@@ -170,6 +217,11 @@ final class Utils
             channel.cd(startingPlace);
             for(String s : src)
             {
+                if(s.startsWith("~"))
+                {
+                    s = System.getProperty("user.home") + "/" + s.substring(2);
+                }
+                System.out.println(s);
                 f = new File(s);
                 if(!f.isDirectory())
                 {
@@ -302,6 +354,10 @@ final class Utils
     // newValue = null: for removing the line with the value
     static void updateFileValue(String filePath, String valueName, String newValue, String separatedBy, boolean firstOnly)
     {
+        updateFileValue(filePath, valueName, newValue, separatedBy, firstOnly, false);
+    }
+    static void updateFileValue(String filePath, String valueName, String newValue, String separatedBy, boolean firstOnly, boolean silent)
+    {
         try
         {
             List<String> lines;
@@ -311,7 +367,7 @@ final class Utils
             lines = Files.readAllLines(f.toPath(), Charset.defaultCharset());
             for(String line: lines)
             {
-                if(line.contains(valueName) && !(firstOnly && replacedCount > 0))
+                if(line.contains(valueName) && !line.startsWith("#") && !(firstOnly && replacedCount > 0))
                 {
                     if(newValue != null)
                     {
@@ -329,7 +385,10 @@ final class Utils
                 newValue = "";
             }
             Files.write(f.toPath(), newLines, Charset.defaultCharset());
-            System.out.println("File '" + filePath + "' updated: '" + valueName + "' changed to '" + newValue + "'.");
+            if(!silent)
+            {
+                System.out.println("File '" + filePath + "' updated: '" + valueName + "' changed to '" + newValue + "'.");
+            }
         }
         catch (IOException e)
         {
@@ -479,6 +538,65 @@ final class Utils
             }
         }
         return null;
+    }
+
+    // https://ip2cidr.com/
+    // http://stackoverflow.com/questions/33443914/how-to-convert-ip-address-range-to-cidr-in-java
+    // http://stackoverflow.com/questions/5020317/in-java-given-an-ip-address-range-return-the-minimum-list-of-cidr-blocks-that
+    static List<String> range2cidrlist( String startIp, String endIp ) {
+        long start = ipToLong(startIp);
+        long end = ipToLong(endIp);
+
+        ArrayList<String> pairs = new ArrayList<String>();
+        while ( end >= start ) {
+            byte maxsize = 32;
+            while ( maxsize > 0) {
+                long mask = CIDR2MASK[ maxsize -1 ];
+                long maskedBase = start & mask;
+
+                if ( maskedBase != start ) {
+                    break;
+                }
+
+                maxsize--;
+            }
+            double x = Math.log( end - start + 1) / Math.log( 2 );
+            byte maxdiff = (byte)( 32 - Math.floor( x ) );
+            if ( maxsize < maxdiff) {
+                maxsize = maxdiff;
+            }
+            String ip = longToIP(start);
+            pairs.add( ip + "/" + maxsize);
+            start += Math.pow( 2, (32 - maxsize) );
+        }
+        return pairs;
+    }
+    private static final int[] CIDR2MASK = new int[] { 0x00000000, 0x80000000,
+            0xC0000000, 0xE0000000, 0xF0000000, 0xF8000000, 0xFC000000,
+            0xFE000000, 0xFF000000, 0xFF800000, 0xFFC00000, 0xFFE00000,
+            0xFFF00000, 0xFFF80000, 0xFFFC0000, 0xFFFE0000, 0xFFFF0000,
+            0xFFFF8000, 0xFFFFC000, 0xFFFFE000, 0xFFFFF000, 0xFFFFF800,
+            0xFFFFFC00, 0xFFFFFE00, 0xFFFFFF00, 0xFFFFFF80, 0xFFFFFFC0,
+            0xFFFFFFE0, 0xFFFFFFF0, 0xFFFFFFF8, 0xFFFFFFFC, 0xFFFFFFFE,
+            0xFFFFFFFF };
+    private static long ipToLong(String strIP) {
+        long[] ip = new long[4];
+        String[] ipSec = strIP.split("\\.");
+        for (int k = 0; k < 4; k++) {
+            ip[k] = Long.valueOf(ipSec[k]);
+        }
+        return (ip[0] << 24) + (ip[1] << 16) + (ip[2] << 8) + ip[3];
+    }
+    private static String longToIP(long longIP) {
+        StringBuffer sb = new StringBuffer("");
+        sb.append(String.valueOf(longIP >>> 24));
+        sb.append(".");
+        sb.append(String.valueOf((longIP & 0x00FFFFFF) >>> 16));
+        sb.append(".");
+        sb.append(String.valueOf((longIP & 0x0000FFFF) >>> 8));
+        sb.append(".");
+        sb.append(String.valueOf(longIP & 0x000000FF));
+        return sb.toString();
     }
 
 }
