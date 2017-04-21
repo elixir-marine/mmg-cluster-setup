@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Metapipe-cPouta Launcher
+Exec=$SHELL -c 'THIS_PID=$$ ; cd "$(dirname "$1")" ; trap "echo 'Ctrl+C!'" INT ; ./_Launcher.sh ; exit 0 ' dummy %k
+Terminal=true
+Type=Application
