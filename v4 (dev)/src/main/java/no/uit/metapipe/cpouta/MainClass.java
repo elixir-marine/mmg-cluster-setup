@@ -391,12 +391,12 @@ public class MainClass implements Closeable
                         "Runs '" + Commands.REMOVE_CLUSTER.getCommand() + "' and then '" + Commands.CREATE_CLUSTER.getCommand() + "'.\n" +
 //                "\nAdmin IPs:\n" +
                 "--------------------\n" +
-                "|'" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X', '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X X.X.X.X ...', " +
-                    Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X', '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ...':\n|\t" +
+                "|'" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X'; '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X, X.X.X.X, ...'; '" +
+                    Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X'; '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X-X.X.X.X, X.X.X.X-X.X.X.X, ...':\n|\t" +
                         "Open access to cluster web UI for the given IP(s)/IP-range(s).\n|\t" +
                         "To open access for all addresses, run '" + Commands.ADMIN_ADD.getCommand() + " 0.0.0.0-255.255.255.255'\n" +
-                "|'" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X', '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X X.X.X.X ...', " +
-                    Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X', '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ...':\n|\t" +
+                "|'" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X'; '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X, X.X.X.X, ...'; '" +
+                    Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X'; '" + Commands.ADMIN_REMOVE.getCommand() + " X.X.X.X-X.X.X.X, X.X.X.X-X.X.X.X, ...':\n|\t" +
                         "Remove the IP(s)/IP-range(s) from admins.\n" +
                 "|'" + Commands.ADMIN_LIST.getCommand() + "':\n|\t" +
                         "List admin IPs.\n" +
@@ -535,7 +535,8 @@ public class MainClass implements Closeable
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ENV.getCommand()) && cmd.length == 1)
                 {
 //                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateEnv(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
+                    if(mainClass.hardwareStats.canCreate(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi,
+                            mainClass.neutronApi, Commands.CREATE_ENV.getCommand()))
                     {
                         mainClass.stopwatch.start();
                         mainClass.createEnv();
@@ -556,7 +557,8 @@ public class MainClass implements Closeable
                         mainClass.removeCluster();
                     }
 //                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateCluster(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
+                    if(mainClass.hardwareStats.canCreate(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi,
+                            mainClass.neutronApi, Commands.CREATE_CLUSTER.getCommand()))
                     {
                         mainClass.createCluster(out);
                     }
@@ -569,7 +571,8 @@ public class MainClass implements Closeable
                 else if(cmd[0].equalsIgnoreCase(Commands.CREATE_ALL.getCommand()) && cmd.length == 1)
                 {
 //                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreateAll(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi, mainClass.neutronApi))
+                    if(mainClass.hardwareStats.canCreate(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi,
+                            mainClass.neutronApi, Commands.CREATE_ALL.getCommand()))
                     {
                         mainClass.stopwatch.start();
                         mainClass.createEnv();
@@ -623,13 +626,22 @@ public class MainClass implements Closeable
                     mainClass.updateSW();
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_ADD.getCommand()) && cmd.length > 1)
+                else if((cmd[0].equalsIgnoreCase(Commands.ADMIN_ADD.getCommand()) || cmd[0].equalsIgnoreCase(Commands.ADMIN_REMOVE.getCommand())) &&
+                        cmd.length > 1)
                 {
-                    mainClass.addIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi, true);
-                }
-                else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_REMOVE.getCommand()) && cmd.length > 1)
-                {
-                    mainClass.removeIpMasterAccess(Arrays.asList(cmd).subList(1, cmd.length), mainClass.securityGroupApi);
+                    List<String> ips = new ArrayList<String>();
+                    for(int i = 1; i < cmd.length; i++)
+                    {
+                        ips.add(cmd[i].replace(",", ""));
+                    }
+                    if(cmd[0].equalsIgnoreCase(Commands.ADMIN_ADD.getCommand()))
+                    {
+                        mainClass.addIpMasterAccess(ips, mainClass.securityGroupApi, true);
+                    }
+                    else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_REMOVE.getCommand()))
+                    {
+                        mainClass.removeIpMasterAccess(ips, mainClass.securityGroupApi);
+                    }
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.ADMIN_LIST.getCommand()) && cmd.length == 1)
                 {
@@ -1027,6 +1039,7 @@ public class MainClass implements Closeable
             }
             else
             {
+                System.out.println("Admin IP address in OpenStack, adding Started: " + ip);
                 pair = config.getIpAdminsPairFromString(ip);
                 cidrList = Utils.range2cidrlist(pair.getKey(), pair.getValue());
                 for(String cidr : cidrList)
@@ -1043,11 +1056,10 @@ public class MainClass implements Closeable
                     }
                     catch (IllegalStateException e)
                     {
-                        System.out.print("Security rule for accessing Master already exists. ");
+                        System.out.println("Security rule for accessing Master already exists for '" + cidr + "'.");
                     }
                 }
-                System.out.println();
-                System.out.println("Admin IP address in OpenStack, adding finished: " + ip);
+                System.out.println("Admin IP address in OpenStack, adding Finished: " + ip);
                 System.out.println();
             }
         }
@@ -1064,6 +1076,7 @@ public class MainClass implements Closeable
         {
             for(String ip : ips)
             {
+                System.out.println("Admin IP address in OpenStack, removal Started: " + ip);
                 pair = config.getIpAdminsPairFromString(ip);
                 cidrList = Utils.range2cidrlist(pair.getKey(), pair.getValue());
                 for(String cidr : cidrList)
@@ -1094,8 +1107,7 @@ public class MainClass implements Closeable
                     }
 
                 }
-                System.out.println();
-                System.out.println("Admin IP address in OpenStack, removal finished: " + ip);
+                System.out.println("Admin IP address in OpenStack, removal Finished: " + ip);
                 System.out.println();
             }
         }
@@ -1394,6 +1406,15 @@ public class MainClass implements Closeable
         else if(cmd[0].equals("-auth") && cmd.length == 1)
         {
             out.println("\n" + mainClass.osAuthOnBastionCommands + "\n");
+        }
+        else if(cmd[0].equals("-echo"))
+        {
+            out.println();
+            for(int i = 1; i < cmd.length; i++)
+            {
+                out.print("'" + cmd[i] + "' ");
+            }
+            out.println("\n");
         }
         else if(cmd[0].equals("-tst") && cmd.length == 1)
         {

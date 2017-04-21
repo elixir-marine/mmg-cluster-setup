@@ -12,6 +12,8 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.System.exit;
+
 public class HardwareStats
 {
 
@@ -40,15 +42,15 @@ public class HardwareStats
     public int volumeStorage4env;
     public int volumeStorage4newCluster;
 
-    public int volumeSnapshotsMax;
-    public int volumeSnapshotsUsed;
-    public int volumeSnapshots4env;
-    public int volumeSnapshots4newCluster;
-
-    public int volumeSnapStorageMax;
-    public int volumeSnapStorageUsed;
-    public int volumeSnapStorage4env;
-    public int volumeSnapStorage4newCluster;
+//    public int volumeSnapshotsMax;
+//    public int volumeSnapshotsUsed;
+//    public int volumeSnapshots4env;
+//    public int volumeSnapshots4newCluster;
+//
+//    public int volumeSnapStorageMax;
+//    public int volumeSnapStorageUsed;
+//    public int volumeSnapStorage4env;
+//    public int volumeSnapStorage4newCluster;
 
     public int floatingIpMax;
     public int floatingIpUsed;
@@ -104,8 +106,8 @@ public class HardwareStats
 //        hardwareStats.volumeSnapshotsMax = hardwareStats.volumesMax;
         hardwareStats.volumesMax = volumeQuota.getVolumes();                          // for some reason CinderApi doesn't work
         hardwareStats.volumeStorageMax = volumeQuota.getGigabytes();                  // for some reason CinderApi doesn't work
-        hardwareStats.volumeSnapshotsMax = volumeQuota.getSnapshots();                // for some reason CinderApi doesn't work
-        hardwareStats.volumeSnapStorageMax = hardwareStats.volumeStorageMax;
+//        hardwareStats.volumeSnapshotsMax = volumeQuota.getSnapshots();                // for some reason CinderApi doesn't work
+//        hardwareStats.volumeSnapStorageMax = hardwareStats.volumeStorageMax;
         hardwareStats.floatingIpMax = quota.getFloatingIps();
         hardwareStats.securityGroupsMax = quota.getSecurityGroups();
         hardwareStats.securityGroupRulesMax = quota.getSecurityGroupRules();
@@ -117,8 +119,8 @@ public class HardwareStats
         hardwareStats.instances4env = 1;
         hardwareStats.volumes4env = 1;
         hardwareStats.volumeStorage4env = Integer.parseInt(config.getMaster().get("nfsSwMainVolumeSize"));
-        hardwareStats.volumeSnapshots4env = 0;
-        hardwareStats.volumeSnapStorage4env = 0;
+//        hardwareStats.volumeSnapshots4env = 0;
+//        hardwareStats.volumeSnapStorage4env = 0;
         hardwareStats.floatingIp4env = 1;
         hardwareStats.securityGroups4env = 1;
         hardwareStats.securityGroupRules4env = 4;
@@ -148,8 +150,8 @@ public class HardwareStats
                 Integer.parseInt(config.getMaster().get("nfsSwTmpVolumeSize")) +
                 Integer.parseInt(config.getRegularHddNodes().get("volumeSize")) * Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
                 Integer.parseInt(config.getIoHddSsdNodes().get("hddVolumeSize")) * Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
-        hardwareStats.volumeSnapshots4newCluster = 0;
-        hardwareStats.volumeSnapStorage4newCluster = 0;
+//        hardwareStats.volumeSnapshots4newCluster = 0;
+//        hardwareStats.volumeSnapStorage4newCluster = 0;
         hardwareStats.floatingIp4newCluster = 1;
         hardwareStats.securityGroups4newCluster = 2;
         hardwareStats.securityGroupRules4newCluster = hardwareStats.securityGroups4newCluster * 4;
@@ -161,8 +163,8 @@ public class HardwareStats
         hardwareStats.instancesUsed = 0;
         hardwareStats.volumesUsed = 0;
         hardwareStats.volumeStorageUsed = 0;
-        hardwareStats.volumeSnapshotsUsed = 0;
-        hardwareStats.volumeSnapStorageUsed = 0;
+//        hardwareStats.volumeSnapshotsUsed = 0;
+//        hardwareStats.volumeSnapStorageUsed = 0;
         hardwareStats.floatingIpUsed = 0;
         hardwareStats.securityGroupsUsed = 0;
         hardwareStats.securityGroupRulesUsed = 0;
@@ -184,22 +186,12 @@ public class HardwareStats
             {
                 hardwareStats.volumeStorageUsed += x.getSize();                                                               // for some reason CinderApi doesn't work
             }
-            hardwareStats.volumeSnapshotsUsed = cinderApi.getSnapshotApi(config.getRegionName()).list().size();               // for some reason CinderApi doesn't work
-            for(Snapshot x : cinderApi.getSnapshotApi(config.getRegionName()).list())                                         // for some reason CinderApi doesn't work
-            {
-                hardwareStats.volumeSnapStorageUsed += x.getSize();                                                           // for some reason CinderApi doesn't work
-            }
-//            hardwareStats.volumesUsed = novaApi.getVolumeApi(config.getRegionName()).get().list().size();
-//            for(Volume x : novaApi.getVolumeApi(config.getRegionName()).get().list())
+//            hardwareStats.volumeSnapshotsUsed = cinderApi.getSnapshotApi(config.getRegionName()).list().size();               // for some reason CinderApi doesn't work
+//            for(Snapshot x : cinderApi.getSnapshotApi(config.getRegionName()).list())                                         // for some reason CinderApi doesn't work
 //            {
-//                hardwareStats.volumeStorageUsed += x.getSize();
+//                hardwareStats.volumeSnapStorageUsed += x.getSize();                                                           // for some reason CinderApi doesn't work
 //            }
-//            hardwareStats.volumeSnapshotsUsed = novaApi.getVolumeApi(config.getRegionName()).get().listSnapshots().size();
-//            for(VolumeSnapshot x : novaApi.getVolumeApi(config.getRegionName()).get().listSnapshots())
-//            {
-//                hardwareStats.volumeSnapStorageUsed += x.getSize();
-//            }
-            hardwareStats.volumeSnapStorageUsed += hardwareStats.volumeStorageUsed;
+//            hardwareStats.volumeSnapStorageUsed += hardwareStats.volumeStorageUsed;
             hardwareStats.floatingIpUsed = novaApi.getFloatingIPApi(config.getRegionName()).get().list().size();
             hardwareStats.securityGroupsUsed = novaApi.getSecurityGroupApi(config.getRegionName()).get().list().size();
             for(SecurityGroup x : novaApi.getSecurityGroupApi(config.getRegionName()).get().list())
@@ -289,46 +281,84 @@ public class HardwareStats
         return Integer.toString((int)(part / full * 100)) + "%";
     }
 
-    public boolean canCreateEnv(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+    public Boolean canCreate(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi, String commandString)
     {
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' started...\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
-                cores4env, ram4env, instances4env, volumes4env, volumeStorage4env, volumeSnapshots4env, volumeSnapStorage4env,
-                floatingIp4env, securityGroups4env, securityGroupRules4env, keyPairs4env, serverGroups4env);
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' finished.\n");
-        return res;
+        out.println("\nResources validation for '" + commandString.toUpperCase() + "' started...\n");
+        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
+        Boolean res = null;
+
+        if(commandString.equals(MainClass.Commands.CREATE_ENV.getCommand()))
+        {
+            res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+                    cores4env, ram4env, instances4env, volumes4env, volumeStorage4env,
+                    floatingIp4env, securityGroups4env, securityGroupRules4env, keyPairs4env, serverGroups4env);
+        }
+        else if(commandString.equals(MainClass.Commands.CREATE_CLUSTER.getCommand()))
+        {
+            res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+                    cores4newCluster, ram4newCluster, instances4newCluster, volumes4newCluster, volumeStorage4newCluster,
+                    floatingIp4newCluster, securityGroups4newCluster, securityGroupRules4newCluster, keyPairs4newCluster, serverGroups4newCluster);
+        }
+        else if(commandString.equals(MainClass.Commands.CREATE_ALL.getCommand()))
+        {
+            res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+                    cores4env + cores4newCluster, ram4env + ram4newCluster, instances4env + instances4newCluster, volumes4env + volumes4newCluster,
+                    volumeStorage4env + volumeStorage4newCluster, floatingIp4env + floatingIp4newCluster, securityGroups4env + securityGroups4newCluster,
+                    securityGroupRules4env + securityGroupRules4newCluster, keyPairs4env + keyPairs4newCluster, serverGroups4env + serverGroups4newCluster);
+        }
+
+        if(res != null)
+        {
+            out.println("\nResources validation for '" + commandString.toUpperCase() + "' finished.\n");
+            return res;
+        }
+        else
+        {
+            out.println("\nResources validation ERROR: '" + commandString.toUpperCase() + "' invalid command!\n");
+            return false;
+        }
     }
 
-    public boolean canCreateCluster(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
-    {
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' started...\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
-                cores4newCluster, ram4newCluster, instances4newCluster, volumes4newCluster, volumeStorage4newCluster,
-                volumeSnapshots4newCluster, volumeSnapStorage4newCluster, floatingIp4newCluster, securityGroups4newCluster,
-                securityGroupRules4newCluster, keyPairs4newCluster, serverGroups4newCluster);
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' finished.\n");
-        return res;
-    }
-
-    public boolean canCreateAll(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
-    {
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' started...\n");
-        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
-                cores4env + cores4newCluster, ram4env + ram4newCluster, instances4env + instances4newCluster, volumes4env + volumes4newCluster,
-                volumeStorage4env + volumeStorage4newCluster, volumeSnapshots4env + volumeSnapshots4newCluster,
-                volumeSnapStorage4env + volumeSnapStorage4newCluster, floatingIp4env + floatingIp4newCluster, securityGroups4env + securityGroups4newCluster,
-                securityGroupRules4env + securityGroupRules4newCluster, keyPairs4env + keyPairs4newCluster, serverGroups4env + serverGroups4newCluster);
-        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' finished.\n");
-        return res;
-    }
+//    public boolean canCreateEnv(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+//    {
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' started...\n");
+//        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
+//        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+//                cores4env, ram4env, instances4env, volumes4env, volumeStorage4env,
+//                floatingIp4env, securityGroups4env, securityGroupRules4env, keyPairs4env, serverGroups4env);
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ENV.getCommand().toUpperCase() + "' finished.\n");
+//        return res;
+//    }
+//
+//    public boolean canCreateCluster(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+//    {
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' started...\n");
+//        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
+//        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+//                cores4newCluster, ram4newCluster, instances4newCluster, volumes4newCluster, volumeStorage4newCluster,
+//                floatingIp4newCluster, securityGroups4newCluster, securityGroupRules4newCluster, keyPairs4newCluster, serverGroups4newCluster);
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_CLUSTER.getCommand().toUpperCase() + "' finished.\n");
+//        return res;
+//    }
+//
+//    public boolean canCreateAll(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi)
+//    {
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' started...\n");
+//        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
+//        boolean res = canCreateValidation(out, config, novaApi, tenant, cinderApi, neutronApi,
+//                cores4env + cores4newCluster, ram4env + ram4newCluster, instances4env + instances4newCluster, volumes4env + volumes4newCluster,
+//                volumeStorage4env + volumeStorage4newCluster, floatingIp4env + floatingIp4newCluster, securityGroups4env + securityGroups4newCluster,
+//                securityGroupRules4env + securityGroupRules4newCluster, keyPairs4env + keyPairs4newCluster, serverGroups4env + serverGroups4newCluster);
+//        out.println("\nResources validation for '" + MainClass.Commands.CREATE_ALL.getCommand().toUpperCase() + "' finished.\n");
+//        return res;
+//    }
 
     private boolean canCreateValidation(PrintStream out, Configuration config, NovaApi novaApi, Tenant tenant, CinderApi cinderApi, NeutronApi neutronApi,
                               int coresRequired, int ramRequired, int instancesRequired, int volumesRequired, int volStorageRequired,
-                              int volSnapshotsRequired, int volSnapStorageRequired, int floatingIpsRequired, int secGroupsRequired,
-                              int secGroupRulesRequired, int keyPairsRequired, int serverGroupsRequired)
+                              int floatingIpsRequired, int secGroupsRequired, int secGroupRulesRequired, int keyPairsRequired, int serverGroupsRequired)
     {
         //loadHardwareStatsStatic(config, novaApi, tenant, cinderApi);
-        this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
+        //this.loadHardwareStats(config, novaApi, tenant, cinderApi, neutronApi);
         List<String> errorSet = new ArrayList<String>();
         List<String> naSet = new ArrayList<String>();
 
@@ -370,9 +400,15 @@ public class HardwareStats
 
     private void canCreateBuildErrorSet(List<String> errorSet, List<String> naSet, String name, int max, int used, int required)
     {
-        if(required > 0 && max == 0)
+        //System.out.println("============ " + max + " " + used + " " + required);
+        if(max == 0 && used < 0)
         {
-            naSet.add(name + " ::: not possible to validate. Information about the resource was not received from the API.");
+            naSet.add(name + " ::: Resource information not available.");
+        }
+        else if(max == 0 && required > 0)
+        {
+            naSet.add(name + " ::: not possible to validate. Information about the resource was not received from the API. " +
+                    "Received ::: Quota: " + max + ", Available: " + (max - used) + ", Required: " + required + ".");
         }
         //else if(used > max)
         //{

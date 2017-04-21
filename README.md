@@ -130,9 +130,9 @@ Commands:
   To be used if ssh-session to Bastion hangs during "remove-all". Removes bastion, OS setups, SW-disk; config.yml cleanup. Cluster deprovision skipped.
 - "remove-create-cluster":
   "remove-cluster" + "create-cluster".
-- "admin-add X.X.X.X" (1), "admin-add X.X.X.X X.X.X.X ..." (2), "admin-add X.X.X.X-X.X.X.X" (3), "admin-add X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ..." (4):
-  Opens access to Spark cluster web UI for an IP address (1), addresses (2), address range (3), address ranges (4). To open access for everyone, run "ip-admin-add 0.0.0.0-255.255.255.255".
-- "admin-remove X.X.X.X" (1), "admin-remove X.X.X.X X.X.X.X ..." (2), "admin-remove X.X.X.X-X.X.X.X" (3), "admin-remove X.X.X.X-X.X.X.X X.X.X.X-X.X.X.X ..." (4):
+- "admin-add X.X.X.X" (1); "admin-add X.X.X.X, X.X.X.X, ..." (2); "admin-add X.X.X.X-X.X.X.X" (3); "admin-add X.X.X.X-X.X.X.X, X.X.X.X-X.X.X.X, ..." (4):
+  Opens access to Spark cluster web UI for IP address (1), addresses (2), address range (3), address ranges (4), mix of addresses and ranges. To open access for everyone, run "ip-admin-add 0.0.0.0-255.255.255.255".
+- "admin-remove X.X.X.X" (1); "admin-remove X.X.X.X, X.X.X.X, ..." (2); "admin-remove X.X.X.X-X.X.X.X" (3); "admin-remove X.X.X.X-X.X.X.X, X.X.X.X-X.X.X.X, ..." (4):
   Remove IP adress(es)/range(s) from admins.
 - 'admin-list':
   List admin IPs and OpenStack CIDRs.
