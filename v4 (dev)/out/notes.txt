@@ -1,0 +1,32 @@
+
+
+
+Clear metapipe-tmp folder:
+sw-kill
+execute-master>>> cd /$SW_PARENT_DIR/$SW_TMP_DIR ; printf "Before:\t\t" ; du -hs metapipe-tmp/ ; rm -r -f metapipe-tmp/* ; printf "Now:\t\t" ; du -hs metapipe-tmp/
+
+
+
+Submit test dataset ERR599167 (force new job) from Burn:
+cd /mnt/data2/MarCat/
+metapipectl submit --contigs-cutoff 0 --remove-non-complete-genes true -t csc-AAA --force ERR599167/ERR599167_contigs.fasta
+<or>
+metapipectl submit --contigs-cutoff 0 --remove-non-complete-genes true -t metapipe --force ERR599167/ERR599167_contigs.fasta
+
+Keep track of the submitted test dataset ERR599167:
+metapipectl submit --contigs-cutoff 0 --remove-non-complete-genes true -t csc-AAA ERR599167/ERR599167_contigs.fasta
+
+
+
+Update only META-pipe jar (after the link in the config was modified):
+-cc.a
+-cc.b
+-ce.j
+-ce.k
+execute-bastion>>> source ~/sw_files/_init.sh ; cd /media/sw_main/sw/ ; ll ; rm $SW_EXECUTABLE ; curl -O -u superman:sho0Feu5Ahn2matiCoh9eegi $ARTIFACTS_FILES_EXEC ; chmod 777 $SW_EXECUTABLE ; ll ; cd ~ 
+-ce.m
+-ce.n
+sw-kill-dev
+execute-master>>> cd /$SW_PARENT_DIR/$SW_MAIN_DIR/$SW_FILES_DIR_NAME ; ll ; rm $SW_EXECUTABLE ; curl -O -u superman:sho0Feu5Ahn2matiCoh9eegi $ARTIFACTS_FILES_EXEC ; chmod 777 $SW_EXECUTABLE ; ll 
+
+

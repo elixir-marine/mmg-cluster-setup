@@ -1,13 +1,10 @@
 package no.uit.metapipe.cpouta;
 
-import com.google.common.net.InetAddresses;
-import com.sun.deploy.util.ArrayUtil;
 import javafx.util.Pair;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.Inet4Address;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -40,6 +37,11 @@ public final class Configuration
 
     private String clusterName;
     private String clusterKeyName;
+    
+    private boolean serverGroupAntiAffinity;
+
+    private int swVolumeSize;
+    private boolean swNfcShared;
 
     private Map<String, String> master;
 
@@ -80,6 +82,7 @@ public final class Configuration
     private int sparkMasterVmRam;
     private int sparkWorkerVmCores;
     private int sparkWorkerVmRam;
+    private int sparkNumPartitions;
     private int sparkExecutorCores;
 
     private Integer maxLogs;
@@ -207,6 +210,16 @@ public final class Configuration
     public void setClusterKeyName(String clusterKeyName)
     {
         this.clusterKeyName = Utils.stringValidate(clusterKeyName, errorMessagePrefix + "clusterKeyName");
+    }
+
+    public boolean isServerGroupAntiAffinity()
+    {
+        return serverGroupAntiAffinity;
+    }
+
+    public void setServerGroupAntiAffinity(boolean serverGroupAntiAffinity)
+    {
+        this.serverGroupAntiAffinity = (Boolean)Utils.objectValidate(serverGroupAntiAffinity, errorMessagePrefix + "serverGroupAntiAffinity");;
     }
 
     public String getServerGroupId()
@@ -444,6 +457,26 @@ public final class Configuration
         this.ipCheck = Utils.stringValidate(ipCheck, errorMessagePrefix + "ipCheck");
     }
 
+    public int getSwVolumeSize()
+    {
+        return swVolumeSize;
+    }
+
+    public void setSwVolumeSize(int swVolumeSize)
+    {
+        this.swVolumeSize = Utils.intValidate(swVolumeSize, errorMessagePrefix + "swVolumeSize", false);
+    }
+
+    public boolean isSwNfcShared()
+    {
+        return swNfcShared;
+    }
+
+    public void setSwNfcShared(boolean swNfcShared)
+    {
+        this.swNfcShared = (Boolean)Utils.objectValidate(swNfcShared, errorMessagePrefix + "swNfcShared");
+    }
+
     public Map<String, String> getRegularHddNodes()
     {
         return regularHddNodes;
@@ -455,12 +488,12 @@ public final class Configuration
         if(this.getNodeGroups().contains("regularHddNodes"))
         {
             Utils.stringValidate(this.regularHddNodes.get("numNodes"), errorMessagePrefix + "regularHddNodes numNodes");
-            Utils.stringValidate(this.regularHddNodes.get("volumeSize"), errorMessagePrefix + "regularHddNodes volumeSize");
+            //Utils.stringValidate(this.regularHddNodes.get("volumeSize"), errorMessagePrefix + "regularHddNodes volumeSize");
         }
         else
         {
             this.regularHddNodes.put("numNodes", "0");
-            this.regularHddNodes.put("volumeSize", "0");
+            //this.regularHddNodes.put("volumeSize", "0");
         }
         Utils.stringValidate(this.regularHddNodes.get("flavor"), errorMessagePrefix + "regularHddNodes flavor");
     }
@@ -476,12 +509,12 @@ public final class Configuration
         if(this.getNodeGroups().contains("ioHddSsdNodes"))
         {
             Utils.stringValidate(this.ioHddSsdNodes.get("numNodes"), errorMessagePrefix + "ioHddSsdNodes numNodes");
-            Utils.stringValidate(this.ioHddSsdNodes.get("hddVolumeSize"), errorMessagePrefix + "ioHddSsdNodes hddVolumeSize");
+            //Utils.stringValidate(this.ioHddSsdNodes.get("hddVolumeSize"), errorMessagePrefix + "ioHddSsdNodes hddVolumeSize");
         }
         else
         {
             this.ioHddSsdNodes.put("numNodes", "0");
-            this.regularHddNodes.put("hddVolumeSize", "0");
+            //this.regularHddNodes.put("hddVolumeSize", "0");
         }
         Utils.stringValidate(this.ioHddSsdNodes.get("flavor"), errorMessagePrefix + "ioHddSsdNodes flavor");
     }
@@ -505,8 +538,7 @@ public final class Configuration
     {
         this.master = (Map<String, String>)Utils.objectValidate(master, errorMessagePrefix + "master");
         Utils.stringValidate(this.master.get("flavor"), errorMessagePrefix + "master flavor");
-        Utils.stringValidate(this.master.get("metadataVolumeSize"), errorMessagePrefix + "master metadataVolumeSize");
-        Utils.stringValidate(this.master.get("nfsSwMainVolumeSize"), errorMessagePrefix + "master nfsSwMainVolumeSize");
+        //Utils.stringValidate(this.master.get("metadataVolumeSize"), errorMessagePrefix + "master metadataVolumeSize");
         Utils.stringValidate(this.master.get("nfsSwTmpVolumeSize"), errorMessagePrefix + "master nfsSwTmpVolumeSize");
     }
 
@@ -781,6 +813,16 @@ public final class Configuration
         this.sparkWorkerVmRam = Utils.intValidate(sparkWorkerVmRam, errorMessagePrefix + "sparkWorkerVmRam", true);
     }
 
+    public int getSparkNumPartitions()
+    {
+        return sparkNumPartitions;
+    }
+
+    public void setSparkNumPartitions(int sparkNumPartitions)
+    {
+        this.sparkNumPartitions = Utils.intValidate(sparkNumPartitions, errorMessagePrefix + "sparkNumPartitions", true);
+    }
+
     public int getSparkExecutorCores()
     {
         return sparkExecutorCores;
@@ -788,7 +830,7 @@ public final class Configuration
 
     public void setSparkExecutorCores(int sparkExecutorCores)
     {
-        this.sparkExecutorCores = Utils.intValidate(sparkExecutorCores, errorMessagePrefix + "sparkExecutorCores", false);
+        this.sparkExecutorCores = Utils.intValidate(sparkExecutorCores, errorMessagePrefix + "sparkExecutorCores", true);
     }
 
     public int getMaxLogs()
@@ -813,4 +855,5 @@ public final class Configuration
             this.maxLogs = maxLogs;
 
     }
+    
 }

@@ -23,10 +23,11 @@ class ClientProceduresRemoval
 {
     private ClientProceduresRemoval() { }
 
-    static void deleteCluster(JSch ssh, /*ServerGroupApi serverGroupApi, */Configuration config, Server bastion, String authCommands)
+    static void deleteCluster(JSch ssh, /*ServerGroupApi serverGroupApi, */Configuration config, Server bastion, String authCommands, boolean skipSwDisks)
     {
         System.out.println("Starting cluster removing procedure...");
         String commands;
+        int removeSwDisks = skipSwDisks ? 0 : 1;
         commands =
                 "source ~/.virtualenvs/ansible-2.3/bin/activate;" +
                 "ansible-playbook -e @" +
@@ -35,7 +36,7 @@ class ClientProceduresRemoval
                 " -e cluster_name=" + config.getClusterName() +
                 " -e num_nodes="  + Integer.toString(Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
                     Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"))) +
-                " -e remove_masters=1 -e remove_master_volumes=1 -e remove_nodes=1 -e remove_node_volumes=1" +
+                " -e remove_masters=1 -e remove_master_volumes=1 -e remove_nodes=1 -e remove_node_volumes=" + removeSwDisks +
                 " -e remove_security_groups=1 2>&1;" +
                 "deactivate;";
         System.out.println(commands);

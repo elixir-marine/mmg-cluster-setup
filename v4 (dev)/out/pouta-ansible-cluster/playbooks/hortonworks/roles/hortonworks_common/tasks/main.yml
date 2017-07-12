@@ -2,6 +2,7 @@
   yum: name={{ item }}
   with_items:
     - java-1.8.0-openjdk
+    - java-1.8.0-openjdk-devel
 
 - name: fix jdk slow random source
   lineinfile:

@@ -4,16 +4,7 @@ source _init.sh
 
 echo "LAUNCHING META-PIPE FUNCTIONAL ANALYSIS..."
 
-start-all.sh
-
-#$SPARK_HOME/bin/spark-submit \
-#    --master spark://$(hostname):7077 \
-#    --driver-memory $(($RAM_MASTER))G \
-#    --executor-memory $(($RAM_PER_EXECUTOR))G \
-#    --total-executor-cores $(($CORES_PER_EXECUTOR * $NUM_WORKERS)) \
-#    $METAPIPE_MAIN_DIR/workflow-assembly-0.1-SNAPSHOT.jar \
-#        execution-manager --executor-id test-executor --num-partitions 1000 \
-#        --config-file $METAPIPE_MAIN_DIR/.metapipe/conf.json --job-tags csc-test
+source $SPARK_HOME/sbin/start-all.sh
 
 #SPARK_CONF="\
 #    --driver-cores $CORES_MASTER \
@@ -34,10 +25,10 @@ $SPARK_HOME/bin/spark-submit \
     --master spark://$(hostname):7077 \
     $SPARK_CONF \
     $SW_EXECUTABLE \
-        execution-manager --executor-id test-executor --num-partitions 10000 \
+        execution-manager --executor-id test-executor --num-partitions $NUM_PARTITIONS --num-concurrent-jobs -1 \
         --config-file .metapipe/conf.json --job-tags $SPARK_JOB_TAG
 
-stop-all.sh
+#source $SPARK_HOME/sbin/stop-all.sh
 
 
 

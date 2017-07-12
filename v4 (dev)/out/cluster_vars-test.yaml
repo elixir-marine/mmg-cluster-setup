@@ -1,0 +1,53 @@
+ 
+
+cluster_name: csc-spark-cluster
+network_name: project_2000053
+ssh_key: my_cluster_key
+bastion_secgroup: bastion-metapipe
+
+nfs_shares:
+  - directory: /export/sw_tmp
+
+master:
+  inventory_group: masters
+  auto_ip: yes
+  flavor: hpc-gen1.8core
+  image: CentOS-7.0
+  volumes:
+    - name: sw_main
+      size: 75
+      pv_path: /dev/vdb
+      volume_id: 4ad7b7f4-64fd-46b4-b06a-3eda8e28e8de
+    - name: sw_tmp
+      size: 300
+      pv_path: /dev/vdc
+  filesystems:
+    - name: sw_main
+      volume: sw_main
+      mount_path: "/export/sw_main"
+      fstype: "btrfs"
+      format: false
+    - name: sw_tmp
+      volume: sw_tmp
+      mount_path: "/export/sw_tmp"
+      fstype: "btrfs"
+      mount_opts: "defaults,compress=lzo"
+
+node_groups:
+  - disk
+
+disk:
+  flavor: hpc-gen1.16core
+  image: CentOS-7.0
+  num_vms: 6
+  volumes:
+    - name: sw_main
+      size: 75
+      pv_path: /dev/vdb
+      volume_id: 4ad7b7f4-64fd-46b4-b06a-3eda8e28e8de
+  filesystems:
+    - name: sw_main
+      volume: sw_main
+      mount_path: "/export/sw_main"
+      fstype: "btrfs"
+      format: false

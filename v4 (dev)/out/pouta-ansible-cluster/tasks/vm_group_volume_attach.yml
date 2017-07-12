@@ -11,7 +11,7 @@
   async_status: jid={{ item.ansible_job_id }}
   register: job_result
   until: job_result.finished
-  delay: 2
+  delay: 1
   retries: 150
   with_items: "{{ async_volume_attach.results }}"
   when: "{{ volume_spec.size }}|default(0) > 0"

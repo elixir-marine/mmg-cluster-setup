@@ -1,0 +1,105 @@
+ 
+
+cluster_name: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+network_name: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ssh_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+bastion_secgroup: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+nfs_shares:
+  - directory: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    export_options: "*(ro)"
+    mount_options: defaults,_netdev,ro
+  - directory: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+master:
+  inventory_group: masters
+  auto_ip: yes
+  flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  volumes:
+    - name: metadata
+      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      pv_path: /dev/vdb
+    - name: sw_main
+      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      pv_path: /dev/vdc
+      volume_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    - name: sw_tmp
+      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      pv_path: /dev/vdd
+  filesystems:
+    - name: swap
+      volume: metadata
+      size: "2%VG"
+      fstype: swap
+    - name: hadoop
+      volume: metadata
+      mount_path: /hadoop
+      size: "97%VG"
+      fstype: xfs
+      mkfs_opts: ""
+    - name: sw_main
+      volume: sw_main
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      format: false
+    - name: sw_tmp
+      volume: sw_tmp
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      mount_opts: "defaults,compress=lzo"
+
+node_groups:
+  - disk
+  - ssd
+
+disk:
+  flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  num_vms: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  volumes:
+    - name: datavol
+      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      pv_path: "/dev/vdb"
+  filesystems:
+    - name: swap
+      volume: datavol
+      size: "2%VG"
+      fstype: swap
+      format: true
+    - name: hadoop_disk
+      volume: datavol
+      size: "97%VG"
+      mount_path: /hadoop/disk
+      fstype: xfs
+
+ssd:
+  flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  num_vms: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  volumes:
+    # This is the ephemeral (scratch) disk for io-intensive flavors.
+    # Size is set to 0, thus the block device is not provisioned from openstack volume but
+    # assumed to be present and usable.
+    - name: ssd
+      size: 0
+      pv_path: "/dev/vdb"
+    - name: datavol
+      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      pv_path: "/dev/vdc"
+  filesystems:
+    - name: hadoop_ssd
+      volume: ssd
+      size: "97%VG"
+      mount_path: /hadoop/ssd
+      fstype: xfs
+    - name: swap
+      volume: ssd
+      size: "2%VG"
+      fstype: swap
+    - name: hadoop_disk
+      volume: datavol
+      size: "99%VG"
+      mount_path: /hadoop/disk
+      fstype: xfs
+

@@ -38,13 +38,12 @@ What the tool can do:
 - Prepare, validate and run processing software on the cluster.
 - Deprovision existing cluster, cleanup everything.
 - Vast amount of logging/debugging information displayed and saved into text files.
-- Display information such as quota/overview, how much time it has taken to run a procedure, etc.
+- Display information such as quota/overview, how much time it has taken to run a procedure, etc; and store all this output in logs.
 - For more info, see "Commands" and "Algorithm Details" below.
   
 |  
   
 Current limitations / 2-be-done in the future:
-- The use of anti-affinity groups is disabled until it is implemented in Ansible 2.2.
 - Only 1 bastion/cluster can exist per time.
 - META-pipe assembly step is not available yet.
 - When the processing software is launched on the cluster, the tool will print all its output, until the user presses Ctrl+C. To stop the sw, user must launch the tool again to run the stop command. And to continue watching the sw output after Ctrl+C, the user must stop and re-launch the sw.
@@ -118,7 +117,7 @@ Commands:
   Runs test script on the cluster, runs SW validation. Included into "create-cluster".
 - "sw-launch":
   Launches the processing software, holds the session until the sw exists or Ctrl+C is pressed. After "sw-launch", "sw-stop" should be executed.
-- "sw-stop":
+- "sw-kill":
   Stops Spark processes, kills if they were not stopped.
 - "sw-update":
   Removes the contents of the SW-disk, re-downloads and prepares the sw. If cluster exists: to start using the updated SW, remove the existing cluster and create new.
@@ -198,7 +197,7 @@ Algorithm Details (the variable names {X} are taken from config.yml):
 - Start stopwatch.
 - Reload all resource stats/info, check whether required resources amount is available, confinue if yes.
 - Update tool comporents.
-  - Generate "cluster_vars.yaml" file in the "temp" folder, using "cluster_vars.yaml.template" and config.yml.
+  - Generate "cluster_vars.yaml" file in the "temp" folder, using "cluster_vars.yaml.template" and settings in config.yml.
 - Transfer this tool to Bastion.
 - Execute cluster provision on Bastion:
   - Init virtualenv/ansible.

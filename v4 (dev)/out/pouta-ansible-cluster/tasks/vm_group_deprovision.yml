@@ -14,8 +14,8 @@
   async_status: jid={{ item.ansible_job_id }}
   register: job_result
   until: job_result.finished
-  retries: 50
-  delay: 3
+  retries: 150
+  delay: 1
   with_items: "{{ async_vm_remove.results }}"
   when: remove_vms | bool
 
@@ -33,8 +33,10 @@
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ cluster_name }}-{{ vm_group_name }}-{{ item }}"
   with_sequence: count={{ vm_group.num_vms|default(1) }}
 
-- set_fact: server_group_name={{ vm_group.server_group | default(cluster_name + "-" + server_group_suffix | default(none)) }}
-  when: (vm_group.server_group is defined) or (server_group_suffix is defined)
+#- set_fact: server_group_name={{ vm_group.server_group | default(cluster_name + "-" + server_group_suffix | default(none)) }}
+#  when: (vm_group.server_group is defined) or (server_group_suffix is defined)
+- set_fact: server_group_name={{ vm_group.server_group | default(none) }}
+  when: vm_group.server_group is defined
 
 - name: remove server group
   os_server_group:

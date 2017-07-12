@@ -6,6 +6,7 @@ if [ "$1" == "cleanup" ]; then
     cd /media/$SW_MAIN_DIR
     echo "Cleaning up..."
     sudo rm -r $SW_FILES_DIR_NAME
+    sudo rm -r -f *                            # new
     return
     echo "THIS SHOULD NOT BE PRINTED!"
 fi
@@ -31,7 +32,11 @@ if [ "$1" == "sw-artifacts-prepare" ]; then
       \"metapipeTemp\": \"/$SW_PARENT_DIR/$SW_TMP_DIR/metapipe-tmp\"
 }" > metapipe/conf.json
     cat metapipe/conf.json
-    echo "Waiting..."
+    sudo mkdir .metapipe                        # new
+    sudo cp metapipe/conf.json .metapipe        # new
+    echo "Waiting 1..."
+    sudo chmod 777 -R .
+    echo "Waiting 2..."
     sudo chmod 777 -R .
     return
     echo "THIS SHOULD NOT BE PRINTED!"
@@ -39,17 +44,20 @@ fi
 
 # Here we must be already in /$SW_PARENT_DIR/$SW_MAIN_DIR/$METAPIPE_MAIN_DIR
 
-sudo mkdir .metapipe
-sudo cp metapipe/conf.json .metapipe
-sudo chmod 777 -R .metapipe
+#sudo mkdir .metapipe
+#sudo cp metapipe/conf.json .metapipe
+#sudo chmod 777 -R .metapipe
 sudo ln -s $(pwd)/.metapipe /home/cloud-user/.metapipe
 
 cd ../../$SW_TMP_DIR
 sudo mkdir metapipe-tmp
 sudo chmod 777 -R .
 
-echo "SW_MAIN_DIR=$SW_MAIN_DIR" >> $SPARK_HOME/conf/spark-env.sh
+#echo "SW_MAIN_DIR=$SW_MAIN_DIR" >> $SPARK_HOME/conf/spark-env.sh
 
 # Temporary solution for missing Perl module "Data/Dumper.pm" and "Digest::MD5":
 # (moved to pouta-ansible-cluster script, in "/roles/base/tasks/main.yml")
+
+#sudo yum install -y python-pip
+#sudo pip install pssh
 

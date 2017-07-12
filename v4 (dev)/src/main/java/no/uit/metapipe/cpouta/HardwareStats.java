@@ -118,7 +118,7 @@ public class HardwareStats
         hardwareStats.ram4env = Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getBastionFlavor()).getRam();
         hardwareStats.instances4env = 1;
         hardwareStats.volumes4env = 1;
-        hardwareStats.volumeStorage4env = Integer.parseInt(config.getMaster().get("nfsSwMainVolumeSize"));
+        hardwareStats.volumeStorage4env = config.getSwVolumeSize();
 //        hardwareStats.volumeSnapshots4env = 0;
 //        hardwareStats.volumeSnapStorage4env = 0;
         hardwareStats.floatingIp4env = 1;
@@ -128,28 +128,47 @@ public class HardwareStats
         hardwareStats.serverGroups4env = 0;
 
         hardwareStats.cores4newCluster =
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getMaster().get("flavor")).getVcpus() +
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getRegularHddNodes().get("flavor")).getVcpus() *
-                        Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getIoHddSsdNodes().get("flavor")).getVcpus() *
-                        Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getMaster().get("flavor")).getVcpus();
         hardwareStats.ram4newCluster =
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getMaster().get("flavor")).getRam() +
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getRegularHddNodes().get("flavor")).getRam() *
-                        Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
-                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getIoHddSsdNodes().get("flavor")).getRam() *
-                        Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
-        hardwareStats.instances4newCluster =
-                1 /*master*/ +
-                Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
-                Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
-        hardwareStats.volumes4newCluster = 2 /*per-master*/ + 1 /*per-worker*/ * hardwareStats.instances4newCluster;
+                Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getMaster().get("flavor")).getRam();
+        hardwareStats.instances4newCluster = 1 /*master*/ ;
         hardwareStats.volumeStorage4newCluster =
-                Integer.parseInt(config.getMaster().get("metadataVolumeSize")) +
-                Integer.parseInt(config.getMaster().get("nfsSwMainVolumeSize")) +
-                Integer.parseInt(config.getMaster().get("nfsSwTmpVolumeSize")) +
-                Integer.parseInt(config.getRegularHddNodes().get("volumeSize")) * Integer.parseInt(config.getRegularHddNodes().get("numNodes")) +
-                Integer.parseInt(config.getIoHddSsdNodes().get("hddVolumeSize")) * Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+                config.getSwVolumeSize() + Integer.parseInt(config.getMaster().get("nfsSwTmpVolumeSize"));
+        hardwareStats.volumes4newCluster = 2 /*per-master*/;
+        if(config.getNodeGroups().contains("regularHddNodes"))
+        {
+            hardwareStats.cores4newCluster +=
+                    Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getRegularHddNodes().get("flavor")).getVcpus() *
+                    Integer.parseInt(config.getRegularHddNodes().get("numNodes"));
+            hardwareStats.ram4newCluster +=
+                    Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getRegularHddNodes().get("flavor")).getRam() *
+                    Integer.parseInt(config.getRegularHddNodes().get("numNodes"));
+            hardwareStats.instances4newCluster +=
+                    Integer.parseInt(config.getRegularHddNodes().get("numNodes"));
+            if(!config.isSwNfcShared())
+            {
+                hardwareStats.volumeStorage4newCluster +=
+                        config.getSwVolumeSize() * Integer.parseInt(config.getRegularHddNodes().get("numNodes"));
+                hardwareStats.volumes4newCluster += 1 /*per-worker*/ * Integer.parseInt(config.getRegularHddNodes().get("numNodes"));
+            }
+        }
+        if(config.getNodeGroups().contains("ioHddSsdNodes"))
+        {
+            hardwareStats.cores4newCluster +=
+                    Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getIoHddSsdNodes().get("flavor")).getVcpus() *
+                    Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+            hardwareStats.ram4newCluster +=
+                    Utils.getFlavorByName(novaApi.getFlavorApi(config.getRegionName()), config.getIoHddSsdNodes().get("flavor")).getRam() *
+                    Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+            hardwareStats.instances4newCluster +=
+                    Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+            if(!config.isSwNfcShared())
+            {
+                hardwareStats.volumeStorage4newCluster +=
+                        config.getSwVolumeSize() * Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+                hardwareStats.volumes4newCluster += 1 /*per-worker*/ * Integer.parseInt(config.getIoHddSsdNodes().get("numNodes"));
+            }
+        }
 //        hardwareStats.volumeSnapshots4newCluster = 0;
 //        hardwareStats.volumeSnapStorage4newCluster = 0;
         hardwareStats.floatingIp4newCluster = 1;

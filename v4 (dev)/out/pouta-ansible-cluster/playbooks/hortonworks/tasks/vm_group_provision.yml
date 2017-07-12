@@ -2,8 +2,10 @@
 - set_fact: vm_group={{ vars[vm_group_name] }}
 - set_fact: vm_group_volumes={{ vm_group.volumes | default([]) }}
 - set_fact: security_groups={{ security_groups | default([cluster_name + "-common"]) }}
-- set_fact: server_group_name={{ vm_group.server_group | default(cluster_name + "-" + server_group_suffix | default(none)) }}
-  when: (vm_group.server_group is defined) or (server_group_suffix is defined)
+#- set_fact: server_group_name={{ vm_group.server_group | default(cluster_name + "-" + server_group_suffix | default(none)) }}
+- set_fact: server_group_name={{ vm_group.server_group | default(none) }}
+#  when: (vm_group.server_group is defined) or (server_group_suffix is defined)
+  when: vm_group.server_group is defined
 
 - name: create server group
   os_server_group:
@@ -30,7 +32,7 @@
     loop_var: "volume_spec"
   when: volume_spec.volume_id is not defined
 
-- name: create {{ vm_group_name }} VMs
+- name: create {{ vm_group_name }} VMs in anti-affinity
   os_server:
     name: "{{ cluster_name }}-{{ vm_group_name }}-{{ item }}"
     flavor: "{{ vm_group.flavor }}"
@@ -47,6 +49,24 @@
     wait: no
   with_sequence: count={{ vm_group.num_vms|default(1) }}
   async: 300
+  when: server_group_name is defined and server_group_name is not none
+  
+- name: create {{ vm_group_name }} VMs in affinity
+  os_server:
+    name: "{{ cluster_name }}-{{ vm_group_name }}-{{ item }}"
+    flavor: "{{ vm_group.flavor }}"
+    image: "{{ vm_group.image|default('CentOS-7.0') }}"
+    key_name: "{{ ssh_key }}"
+    network: "{{ network_name }}"
+    security_groups: "{{ security_groups }}"
+    auto_ip: "{{ vm_group.auto_ip | default(False) }}"
+    boot_from_volume: "{{ vm_group.boot_from_volume | default(False) }}"
+    terminate_volume: yes
+    volume_size: 50 
+    wait: no
+  with_sequence: count={{ vm_group.num_vms|default(1) }}
+  async: 300
+  when: server_group_name is not defined or server_group_name is none
 
 # TODO: replace with os_server wait: yes and async_wait loop when os_server behaves with async (see ansible #4393)
 - name: wait for all VMs to be active
@@ -55,7 +75,7 @@
     wait: yes
   until: openstack_servers and openstack_servers[0].status == 'ACTIVE'
   retries: 150
-  delay: 2
+  delay: 1
   with_sequence: count={{ vm_group.num_vms|default(1) }}
 
 - name: get facts for {{ vm_group_name }} VMs

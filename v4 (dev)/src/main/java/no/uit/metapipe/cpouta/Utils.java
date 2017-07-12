@@ -326,6 +326,26 @@ final class Utils
         }
     }
 
+//    static String[] getFileNamesFromPaths(String[] paths)
+//    {
+//        return getFileNamesFromPaths(paths).toArray(new String[res.size()]);
+//    }
+
+    static List<String> getFileNamesFromPaths(Collection<String> paths)
+    {
+        return getFileNamesFromPaths(paths.toArray(new String[paths.size()]));
+    }
+
+    static List<String> getFileNamesFromPaths(String[] paths)
+    {
+        List<String> res = new ArrayList<String>();
+        for (String s : paths)
+        {
+            res.add(getFileNameFromPath(s));
+        }
+        return res;
+    }
+
     static String getFileNameFromPath(String path)
     {
         return new File(path).getName();
@@ -538,6 +558,16 @@ final class Utils
             }
         }
         return null;
+    }
+    
+    static int getSparkRamGB(int flavorRamMb)
+    {
+        float res = (float)flavorRamMb / 1024f;
+        if(res > 255)       res = 4;
+        else if(res > 55)   res = 3;
+        else if(res > 15)   res = 2;
+        else                res = 1;
+        return (int)Math.floor((float)flavorRamMb / 1024f - res);
     }
 
     // https://ip2cidr.com/

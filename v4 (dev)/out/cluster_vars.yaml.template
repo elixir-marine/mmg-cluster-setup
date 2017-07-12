@@ -12,32 +12,20 @@ nfs_shares:
   - directory: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 master:
+  server_group: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   inventory_group: masters
   auto_ip: yes
   flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   volumes:
-    - name: metadata
-      size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      pv_path: /dev/vdb
     - name: sw_main
       size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      pv_path: /dev/vdc
+      pv_path: /dev/vdb
       volume_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     - name: sw_tmp
       size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      pv_path: /dev/vdd
+      pv_path: /dev/vdc
   filesystems:
-    - name: swap
-      volume: metadata
-      size: "2%VG"
-      fstype: swap
-    - name: hadoop
-      volume: metadata
-      mount_path: /hadoop
-      size: "97%VG"
-      fstype: xfs
-      mkfs_opts: ""
     - name: sw_main
       volume: sw_main
       mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -54,26 +42,24 @@ node_groups:
   - ssd
 
 disk:
+  server_group: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   num_vms: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   volumes:
-    - name: datavol
+    - name: sw_main
       size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      pv_path: "/dev/vdb"
+      pv_path: /dev/vdb
+      volume_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   filesystems:
-    - name: swap
-      volume: datavol
-      size: "2%VG"
-      fstype: swap
-      format: true
-    - name: hadoop_disk
-      volume: datavol
-      size: "97%VG"
-      mount_path: /hadoop/disk
-      fstype: xfs
+    - name: sw_main
+      volume: sw_main
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      format: false
 
 ssd:
+  server_group: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   flavor: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   image: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   num_vms: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -84,9 +70,10 @@ ssd:
     - name: ssd
       size: 0
       pv_path: "/dev/vdb"
-    - name: datavol
+    - name: sw_main
       size: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      pv_path: "/dev/vdc"
+      pv_path: /dev/vdc
+      volume_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   filesystems:
     - name: hadoop_ssd
       volume: ssd
@@ -97,9 +84,8 @@ ssd:
       volume: ssd
       size: "2%VG"
       fstype: swap
-    - name: hadoop_disk
-      volume: datavol
-      size: "99%VG"
-      mount_path: /hadoop/disk
-      fstype: xfs
-
+    - name: sw_main
+      volume: sw_main
+      mount_path: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      fstype: "btrfs"
+      format: false

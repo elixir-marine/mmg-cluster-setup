@@ -77,13 +77,21 @@ public class BastionRoutine
         System.out.println("\nStarted preparing/updating files on master...");
         File arc = new File("arc.tar");
         String swPath = config.getNfsSwMainVolumeMount() + "/" + config.getSwFilesDirName();
-        String commands = "tar -xf arc.tar --overwrite 2>&1;";
-        commands += "sudo rm " + swPath + "/*.sh;";
-        commands += "sudo cp " + config.getXternFiles().get("sw") + "/*.sh " + swPath + " ;";
-        commands += "sudo chmod 777 " + swPath + "/*.sh;";
+        String commands = "rm -f arc.tar;" + "rm -r -f temp;";
+        for(String s : config.getXternFiles().values())
+        {
+            commands += "rm -r -f " + Utils.getFileNameFromPath(s) + ";";
+        }
+        Utils.sshExecutor(ssh, config.getUserName(),
+                Utils.getServerPrivateIp(master, config.getNetworkName()),
+                commands);
         Utils.sshCopier(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master, config.getNetworkName()),
                 new String[]{arc.getAbsolutePath()}, "");
+        commands = "tar -xf arc.tar --overwrite 2>&1;";
+        commands += "sudo rm " + swPath + "/*.sh;" +
+                "sudo cp " + config.getXternFiles().get("sw") + "/*.sh " + swPath + " ;" +
+                "sudo chmod 777 " + swPath + "/*.sh;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master, config.getNetworkName()),
                 commands);
@@ -114,25 +122,25 @@ public class BastionRoutine
 
     static void setupSwOnCluster(JSch ssh, Configuration config, Server master)
     {
-        System.out.println("\nStarted transfering/preparing SW software...");
+        System.out.println("\nStarted transfering/preparing SW...");
         String commands =
                 "cd " + config.getNfsSwMainVolumeMount() + "/" + config.getSwFilesDirName() + ";" +
                 "source " + config.getSwPrepareScript() + " 2>&1";
         commands += " 2>&1;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master, config.getNetworkName()), commands);
-        System.out.println("Finished transfering/preparing SW software.\n");
+        System.out.println("Finished transfering/preparing SW.\n");
     }
 
     static void testSW(JSch ssh, Configuration config, Server master)
     {
-        System.out.println("\nStarted validating SW software...");
+        System.out.println("\nStarted validating SW...");
         String commands =
                 "cd " + config.getNfsSwMainVolumeMount() + "/" + config.getSwFilesDirName() + ";" +
                 "source " + config.getSwTestScript() + " 2>&1;";
         Utils.sshExecutor(ssh, config.getUserName(),
                 Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
-        System.out.println("Finished validating SW software.\n");
+        System.out.println("Finished validating SW.\n");
     }
 
     static void launchSW(JSch ssh, Configuration config, Server master)
@@ -167,10 +175,12 @@ public class BastionRoutine
 //        Utils.sshExecutor(ssh, config.getUserName(),
 //                Utils.getServerPrivateIp(master,config.getNetworkName()), commands);
 //        new File(tempScriptPath.replaceFirst("~/", System.getProperty("user.home") + "/")).delete();
-        String commands = "";
+        String commands =
+                "cd " + config.getNfsSwMainVolumeMount() + "/" + config.getSwFilesDirName() + ";" +
+                "source " + config.getSwInitScript() + " 2>&1;" + "cd ~; ";
         try
         {
-            commands = new String(
+            commands += new String(
                     Files.readAllBytes(Paths.get(tempScriptPath.replaceFirst("~/", System.getProperty("user.home") + "/"))),
                     "UTF-8");
         }

@@ -18,15 +18,18 @@ bastionFlavor: standard.xlarge
 bastionMachineName: bastion_host
 bastionSecGroupName: bastion-metapipe
 
-clusterName: csc-spark-cluster
+clusterName: csc-metapipe-cluster
 clusterKeyName: my_cluster_key
 
-# "nfsSwMainVolumeSize" = size of META-pipe + some extra gigabytes
+serverGroupAntiAffinity: true
+
+# "swVolumeSize" = must have size of SW (META-pipe) + some extra gigabytes
+swVolumeSize: 75
+swNfcShared: false
+
 master:
-  flavor: hpc-gen1.8core
-  metadataVolumeSize: 100
-  nfsSwMainVolumeSize: 75
-  nfsSwTmpVolumeSize: 400
+  flavor: hpc-gen1.16core
+  nfsSwTmpVolumeSize: 300
 
 # Choose (leave uncommented) exactly 1 of the node groups, and comment the unused one.
 nodeGroups:
@@ -36,37 +39,37 @@ nodeGroups:
 regularHddNodes:
   numNodes: 2
   flavor: hpc-gen2.48core
-  volumeSize: 50
 
-ioHddSsdNodes:
-  numNodes: 5
+ioHddSsdNodes: # (SDD volume size is defined in the name of an io-flavor)
+  numNodes: 6
   flavor: io.700GB
-  # (SDD volume is defined in the name of an io-flavor)
-  hddVolumeSize: 50
 
-# SPARK CONFIGURATION VARIABLES: These values are meant to take effect only when running "create-*" command.
-# Changing them when cluster already exists is not recommended.
-# The first 4 values: if set to 0, then the value is set according to the Flavor configuration.
+# SPARK CONFIGURATION VARIABLES: These values are meant to be set before running "create-cluster" command.
+# Changing them when cluster already exists is ok but not recommended (may have to use the 'dev' launch command).
+# For the next 3 values - x: manual value, 0: default number from Flavor.
 sparkMasterVmCores: 0
-sparkMasterVmRam: 29
+sparkMasterVmRam: 0
 sparkWorkerVmCores: 0
-sparkWorkerVmRam: 240
-# This value must be non-zero.
-sparkExecutorCores: 8
+# x: manual value, 0: default algorithm (flavorRam<=15: flavorRam-1, 15<=flavorRam<55: flavorRam-2, 55<flavorRam<255: flavorRam-3, flavorRam>=255: flavorRam-4)
+sparkWorkerVmRam: 0
+# x: manual value, 0: default algorithm (sparkWorkerVmCores / 2)
+sparkExecutorCores: 4
+# x: manual value, 0: default algorithm (sum of all worker-nodes' cores * 4), -1: disabled / not in use
+sparkNumPartitions: 0
 
 # THESE ARE REQUIRED FOR META-pipe EXECUTION:
 swJobTag: csc-AAA
 swArtifactsAuthRequired: true
 swArtifactsUsername:
 swArtifactsPassword:
-swArtifactsFilesExec: https://artifacts.sfb.uit.no/jenkins/newpan_tools/40/workflow-assembly-0.1-SNAPSHOT.jar
-swArtifactsFileDepsArc: https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/13/metapipe-dependencies.tar.gz
+swArtifactsFilesExec: https://artifacts.sfb.uit.no/jenkins/newpan_tools/67/workflow-assembly-0.1-SNAPSHOT.jar
+swArtifactsFileDepsArc: https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/20/metapipe-dependencies.tar.gz
 swArtifactsFilesEtc:
 #  -
 
 # Maximal number of log files in the "logs" folder.
 # For a limited number of logs, set to a positive number. For no logs, set to 0. For unlimited number of logs, set to -1.
-maxLogs: 10
+maxLogs: -1
 
 
 
@@ -107,16 +110,16 @@ swDiskID:
 
 xternFiles:
   ansibleScript: pouta-ansible-cluster
-  clusterTestScript: cluster_test.py
-  thisJar: Metapipe-cPouta.jar
+  sw: sw_files
   config: config.yml
-  disablePasswordAuth: _disablePasswordAuth.sh
+  thisJar: Metapipe-cPouta.jar
+  diskHelper: _disk.sh
   ansibleClusterVars: cluster_vars.yaml
   ansibleClusterVarsTemplate: cluster_vars.yaml.template
-  sw: sw_files
-  diskHelper: _disk.sh
-  sparkSetupScript: _setup_cluster.sh
+  disablePasswordAuth: _disablePasswordAuth.sh
   sparkSetupScriptInit: _init.sh
+  sparkSetupScript: _setup_cluster.sh
+  clusterTestScript: cluster_test.py
 
 swInitScript: _init.sh
 swPrepareScript: _prepare.sh

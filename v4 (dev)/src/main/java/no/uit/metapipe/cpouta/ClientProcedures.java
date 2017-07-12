@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.KeyPair;
-import org.codehaus.plexus.archiver.ArchiverException;
+import org.apache.commons.io.FileUtils;
 import org.codehaus.plexus.archiver.tar.TarArchiver;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
 import org.jclouds.net.domain.IpProtocol;
@@ -23,11 +23,8 @@ import org.jclouds.openstack.nova.v2_0.options.CreateVolumeOptions;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static java.lang.System.exit;
@@ -484,327 +481,376 @@ class ClientProcedures
                 "SPARK_FILES_DIR",
                 config.getSparkFilesDir(),
                 "=", true, isSilent);
-        if(all)
-        {
-            int newVal;
-            Flavor tempFlavor;
+        //if(all)
+        //{
+            int newVal1, newVal2;
+            Flavor tempFlavor = null;
 
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CLUSTER_NAME",
                     "\"" + config.getClusterName() + "\"",
                     "=", true, isSilent);
-            newVal = (config.getSparkMasterVmCores() == 0) ?
+            newVal1 = (config.getSparkMasterVmCores() == 0) ?
                     Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getVcpus() :
                     config.getSparkMasterVmCores();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_MASTER",
-                    Integer.toString(newVal),
+                    Integer.toString(newVal1),
                     "=", true, isSilent);
-            newVal = (config.getSparkMasterVmRam() == 0) ?
-                    Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getRam() :
+            newVal1 = (config.getSparkMasterVmRam() == 0) ?
+                    Utils.getSparkRamGB(Utils.getFlavorByName(flavorApi, config.getMaster().get("flavor")).getRam()) :
                     config.getSparkMasterVmRam();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "RAM_MASTER",
-                    Integer.toString(newVal),
+                    Integer.toString(newVal1),
                     "=", true, isSilent);
-            if(config.getIoHddSsdNodes().get("numNodes").equals("0"))
+            if(config.getNodeGroups().contains("regularHddNodes"))
             {
                 tempFlavor = Utils.getFlavorByName(flavorApi, config.getRegularHddNodes().get("flavor"));
             }
-            else
+            else if(config.getNodeGroups().contains("ioHddSsdNodes"))
             {
                 tempFlavor = Utils.getFlavorByName(flavorApi, config.getIoHddSsdNodes().get("flavor"));
             }
-            newVal = (config.getSparkWorkerVmCores() == 0) ? tempFlavor.getVcpus() : config.getSparkWorkerVmCores();
+            newVal1 = (config.getSparkWorkerVmCores() == 0) ? tempFlavor.getVcpus() : config.getSparkWorkerVmCores();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_PER_SLAVE",
-                    Integer.toString(newVal),
+                    Integer.toString(newVal1),
                     "=", true, isSilent);
-            newVal = (config.getSparkWorkerVmRam() == 0) ? tempFlavor.getRam() : config.getSparkWorkerVmRam();
+            newVal2 = (config.getSparkWorkerVmRam() == 0) ? Utils.getSparkRamGB(tempFlavor.getRam()) : config.getSparkWorkerVmRam();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "RAM_PER_SLAVE",
-                    Integer.toString(newVal),
+                    Integer.toString(newVal2),
                     "=", true, isSilent);
+            newVal2 = (config.getSparkExecutorCores() == 0) ? newVal1 / 2 : config.getSparkExecutorCores();
             Utils.updateFileValue(
                     Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
                     "CORES_PER_EXECUTOR",
-                    Integer.toString(config.getSparkExecutorCores()),
+                    Integer.toString(newVal2),
                     "=", true, isSilent);
-            createClusterVarsFile(config, tempFolder);
+            if(config.getSparkNumPartitions() >= 0)
+            {
+                newVal2 = config.getSparkNumPartitions();
+                if(newVal2 == 0)
+                {
+                    if(config.getNodeGroups().contains("regularHddNodes"))
+                    {
+                        newVal2 = Utils.getFlavorByName(flavorApi, config.getRegularHddNodes().get("flavor")).getVcpus() *
+                                        Integer.parseInt(config.getRegularHddNodes().get("numNodes")) * 4;
+                    }
+                    else if(config.getNodeGroups().contains("ioHddSsdNodes"))
+                    {
+                        newVal2 = Utils.getFlavorByName(flavorApi, config.getIoHddSsdNodes().get("flavor")).getVcpus() *
+                                        Integer.parseInt(config.getIoHddSsdNodes().get("numNodes")) * 4;
+                    }
+                }
+                Utils.updateFileValue(
+                        Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")),
+                        "NUM_PARTITIONS",
+                        Integer.toString(newVal2),
+                        "=", true, isSilent);
+            }
+        if(all)
+        {
+            ClusterVarsFile.create4nfsSharedSW(config, tempFolder);
         }
         System.out.println("... Done.\n");
     }
 
-    static void createClusterVarsFile(Configuration config, String tempFolder)
-    {
-        System.out.println("Generating 'cluster_vars.yaml'...");
-        File templateFile = new File(config.getXternFiles().get("ansibleClusterVarsTemplate"));
-        File newFile = new File(tempFolder + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")));
-        try
-        {
-            Files.copy(templateFile.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            List<String> lines;
-            List<String> newLines = new ArrayList<String>();
-            String line;
-            int j;
-            lines = Files.readAllLines(newFile.toPath(), Charset.defaultCharset());
-            loop:
-            for(int i = 0; i < lines.size(); )
-            {
-                line = lines.get(i);
-                if(line.contains("cluster_name:"))
-                {
-                    newLines.add(Utils.updateYamlFileLine(line, "cluster_name", config.getClusterName()));
-                    i++;
-                }
-                else if(line.contains("network_name:"))
-                {
-                    newLines.add(Utils.updateYamlFileLine(line, "network_name", config.getNetworkName()));
-                    i++;
-                }
-                else if(line.contains("ssh_key:"))
-                {
-                    newLines.add(Utils.updateYamlFileLine(line, "ssh_key", config.getClusterKeyName()));
-                    i++;
-                }
-                else if(line.contains("bastion_secgroup:"))
-                {
-                    newLines.add(Utils.updateYamlFileLine(line, "bastion_secgroup", config.getBastionSecGroupName()));
-                    i++;
-                }
-                else if(line.contains("nfs_shares:"))
-                {
-                    newLines.add(line);
-                    newLines.add(Utils.updateYamlFileLine(lines.get(i + 1), "- directory", config.getNfsSwMainVolumeMount()));
-                    newLines.add(lines.get(i + 2));
-                    newLines.add(lines.get(i + 3));
-                    newLines.add(Utils.updateYamlFileLine(lines.get(i + 4), "- directory", config.getNfsSwTmpVolumeMount()));
-                    i += 5;
-                }
-                else if(line.contains("master:"))
-                {
-                    newLines.add(line);
-                    for(j = i+1; !line.contains("node_groups:"); )
-                    {
-                        line = lines.get(j);
-                        if(line.contains("flavor:"))
-                        {
-                            newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getMaster().get("flavor")));
-                            j++;
-                        }
-                        else if(line.contains("image:"))
-                        {
-                            newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
-                            j++;
-                        }
-                        else if(line.contains("name: metadata"))
-                        {
-                            newLines.add(line);
-                            line = lines.get(j+1);
-                            newLines.add(Utils.updateYamlFileLine(line, "size", config.getMaster().get("metadataVolumeSize")));
-                            j = lines.indexOf(line) + 1;
-                        }
-                        else if(line.contains("name: " + Utils.getFileNameFromPath(config.getNfsSwMainVolumeMount())))
-                        {
-                            if(lines.get(j+2).contains("mount_path"))
-                            {
-                                newLines.add(line);
-                                newLines.add(lines.get(j+1));
-                                newLines.add(Utils.updateYamlFileLine(lines.get(j+2), "mount_path", "\"" + config.getNfsSwMainVolumeMount()) + "\"");
-                                newLines.add(lines.get(j+3));
-                                newLines.add(lines.get(j+4));
-                                j += 5;
-                            }
-                            else
-                            {
-                                newLines.add(line);
-                                newLines.add(Utils.updateYamlFileLine(lines.get(j+1), "size", config.getMaster().get("nfsSwMainVolumeSize")));
-                                newLines.add(lines.get(j+2));
-                                newLines.add(Utils.updateYamlFileLine(lines.get(j+3), "volume_id", config.getSwDiskID()));
-                                j += 4;
-                            }
-                        }
-                        else if(line.contains("name: " + Utils.getFileNameFromPath(config.getNfsSwTmpVolumeMount())))
-                        {
-                            if(lines.get(j+2).contains("mount_path"))
-                            {
-                                newLines.add(line);
-                                newLines.add(lines.get(j+1));
-                                newLines.add(Utils.updateYamlFileLine(lines.get(j+2), "mount_path", "\"" + config.getNfsSwTmpVolumeMount()) + "\"");
-                                newLines.add(lines.get(j+3));
-                                newLines.add(lines.get(j+4));
-                                i = j + 5;
-                                break;
-                            }
-                            else
-                            {
-                                newLines.add(line);
-                                newLines.add(Utils.updateYamlFileLine(lines.get(j+1), "size", config.getMaster().get("nfsSwTmpVolumeSize")));
-                                newLines.add(lines.get(j+2));
-                                newLines.add(lines.get(j+3));
-                                j += 4;
-                            }
-                        }
-                        else
-                        {
-                            newLines.add(line);
-                            j++;
-                        }
-                    }
-                }
-                else if(line.contains("node_groups:"))
-                {
-                    newLines.add(line);
-                    if(config.getNodeGroups().contains("regularHddNodes"))
-                    {
-                        newLines.add("  - disk");
-                    }
-                    if(config.getNodeGroups().contains("ioHddSsdNodes"))
-                    {
-                        newLines.add("  - ssd");
-                    }
-                    i = i + 3;
-                }
-                else if(line.contains("disk:"))
-                {
-                    if(config.getNodeGroups().contains("regularHddNodes"))
-                    {
-                        newLines.add(line);
-                        for(j = i+1; !line.contains("ssd:"); j++)
-                        {
-                            line = lines.get(j);
-                            if(line.contains("flavor:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getRegularHddNodes().get("flavor")));
-                            }
-                            else if(line.contains("image:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
-                            }
-                            else if(line.contains("num_vms:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getRegularHddNodes().get("numNodes")));
-                            }
-                            else if(line.contains("name: datavol"))
-                            {
-                                newLines.add(line);
-                                line = lines.get(++j);
-                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getRegularHddNodes().get("volumeSize")));
-                                break;
-                            }
-                            else
-                            {
-                                newLines.add(line);
-                            }
-                        }
-                        i = ++j;
-                    }
-                    else
-                    {
-                        while(i < lines.size() && !lines.get(i).contains("ssd:")) { i++; }
-                    }
-                }
-                else if(line.contains("ssd:"))
-                {
-                    if(config.getNodeGroups().contains("ioHddSsdNodes"))
-                    {
-                        newLines.add(line);
-                        for(j = i+1; j < lines.size(); j++)
-                        {
-                            line = lines.get(j);
-                            if(line.contains("flavor:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getIoHddSsdNodes().get("flavor")));
-                            }
-                            else if(line.contains("image:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
-                            }
-                            else if(line.contains("num_vms:"))
-                            {
-                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getIoHddSsdNodes().get("numNodes")));
-                            }
-                            else if(line.contains("name: datavol"))
-                            {
-                                newLines.add(line);
-                                line = lines.get(++j);
-                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getIoHddSsdNodes().get("hddVolumeSize")));
-                                break;
-                            }
-                            else
-                            {
-                                newLines.add(line);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        break loop;
-                    }
-                    i = ++j;
-                }
-                else
-                {
-                    newLines.add(line);
-                    i++;
-                }
-            }
-            Files.write(newFile.toPath(), newLines, Charset.defaultCharset());
-            System.out.println("'cluster_vars.yaml' generated:");
-            BufferedReader br = new BufferedReader(new FileReader(newFile));
-            while ((line = br.readLine()) != null)
-            {
-                System.out.println(line);
-            }
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-    }
+//    static void createClusterVarsFile(Configuration config, String tempFolder)
+//    {
+//        System.out.println("Generating 'cluster_vars.yaml'...");
+//        File templateFile = new File(config.getXternFiles().get("ansibleClusterVarsTemplate"));
+//        File newFile = new File(tempFolder + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")));
+//        try
+//        {
+//            Files.copy(templateFile.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//            List<String> lines;
+//            List<String> newLines = new ArrayList<String>();
+//            String line;
+//            int j;
+//            lines = Files.readAllLines(newFile.toPath(), Charset.defaultCharset());
+//            loop:
+//            for(int i = 0; i < lines.size(); )
+//            {
+//                line = lines.get(i);
+//                if(line.contains("cluster_name:"))
+//                {
+//                    newLines.add(Utils.updateYamlFileLine(line, "cluster_name", config.getClusterName()));
+//                    i++;
+//                }
+//                else if(line.contains("network_name:"))
+//                {
+//                    newLines.add(Utils.updateYamlFileLine(line, "network_name", config.getNetworkName()));
+//                    i++;
+//                }
+//                else if(line.contains("ssh_key:"))
+//                {
+//                    newLines.add(Utils.updateYamlFileLine(line, "ssh_key", config.getClusterKeyName()));
+//                    i++;
+//                }
+//                else if(line.contains("bastion_secgroup:"))
+//                {
+//                    newLines.add(Utils.updateYamlFileLine(line, "bastion_secgroup", config.getBastionSecGroupName()));
+//                    i++;
+//                }
+//                else if(line.contains("nfs_shares:"))
+//                {
+//                    newLines.add(line);
+//                    newLines.add(Utils.updateYamlFileLine(lines.get(i + 1), "- directory", config.getNfsSwMainVolumeMount()));
+//                    newLines.add(lines.get(i + 2));
+//                    newLines.add(lines.get(i + 3));
+//                    newLines.add(Utils.updateYamlFileLine(lines.get(i + 4), "- directory", config.getNfsSwTmpVolumeMount()));
+//                    i += 5;
+//                }
+//                else if(line.contains("master:"))
+//                {
+//                    newLines.add(line);
+//                    for(j = i+1; !line.contains("node_groups:"); )
+//                    {
+//                        line = lines.get(j);
+//                        if(line.contains("flavor:"))
+//                        {
+//                            newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getMaster().get("flavor")));
+//                            j++;
+//                        }
+//                        else if(line.contains("image:"))
+//                        {
+//                            newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
+//                            j++;
+//                        }
+//                        else if(line.contains("name: metadata"))
+//                        {
+//                            newLines.add(line);
+//                            line = lines.get(j+1);
+//                            newLines.add(Utils.updateYamlFileLine(line, "size", config.getMaster().get("metadataVolumeSize")));
+//                            j = lines.indexOf(line) + 1;
+//                        }
+//                        else if(line.contains("name: " + Utils.getFileNameFromPath(config.getNfsSwMainVolumeMount())))
+//                        {
+//                            if(lines.get(j+2).contains("mount_path"))
+//                            {
+//                                newLines.add(line);
+//                                newLines.add(lines.get(j+1));
+//                                newLines.add(Utils.updateYamlFileLine(lines.get(j+2), "mount_path", "\"" + config.getNfsSwMainVolumeMount()) + "\"");
+//                                newLines.add(lines.get(j+3));
+//                                newLines.add(lines.get(j+4));
+//                                j += 5;
+//                            }
+//                            else
+//                            {
+//                                newLines.add(line);
+//                                newLines.add(Utils.updateYamlFileLine(lines.get(j+1), "size", String.valueOf(config.getSwVolumeSize())));
+//                                newLines.add(lines.get(j+2));
+//                                newLines.add(Utils.updateYamlFileLine(lines.get(j+3), "volume_id", config.getSwDiskID()));
+//                                j += 4;
+//                            }
+//                        }
+//                        else if(line.contains("name: " + Utils.getFileNameFromPath(config.getNfsSwTmpVolumeMount())))
+//                        {
+//                            if(lines.get(j+2).contains("mount_path"))
+//                            {
+//                                newLines.add(line);
+//                                newLines.add(lines.get(j+1));
+//                                newLines.add(Utils.updateYamlFileLine(lines.get(j+2), "mount_path", "\"" + config.getNfsSwTmpVolumeMount()) + "\"");
+//                                newLines.add(lines.get(j+3));
+//                                newLines.add(lines.get(j+4));
+//                                i = j + 5;
+//                                break;
+//                            }
+//                            else
+//                            {
+//                                newLines.add(line);
+//                                newLines.add(Utils.updateYamlFileLine(lines.get(j+1), "size", config.getMaster().get("nfsSwTmpVolumeSize")));
+//                                newLines.add(lines.get(j+2));
+//                                newLines.add(lines.get(j+3));
+//                                j += 4;
+//                            }
+//                        }
+//                        else
+//                        {
+//                            newLines.add(line);
+//                            j++;
+//                        }
+//                    }
+//                }
+//                else if(line.contains("node_groups:"))
+//                {
+//                    newLines.add(line);
+//                    if(config.getNodeGroups().contains("regularHddNodes"))
+//                    {
+//                        newLines.add("  - disk");
+//                    }
+//                    if(config.getNodeGroups().contains("ioHddSsdNodes"))
+//                    {
+//                        newLines.add("  - ssd");
+//                    }
+//                    i = i + 3;
+//                }
+//                else if(line.contains("disk:"))
+//                {
+//                    if(config.getNodeGroups().contains("regularHddNodes"))
+//                    {
+//                        newLines.add(line);
+//                        for(j = i+1; !line.contains("ssd:"); j++)
+//                        {
+//                            line = lines.get(j);
+//                            if(line.contains("flavor:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getRegularHddNodes().get("flavor")));
+//                            }
+//                            else if(line.contains("image:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
+//                            }
+//                            else if(line.contains("num_vms:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getRegularHddNodes().get("numNodes")));
+//                            }
+//                            else if(line.contains("name: datavol"))
+//                            {
+//                                newLines.add(line);
+//                                line = lines.get(++j);
+//                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getRegularHddNodes().get("volumeSize")));
+//                                break;
+//                            }
+//                            else
+//                            {
+//                                newLines.add(line);
+//                            }
+//                        }
+//                        i = ++j;
+//                    }
+//                    else
+//                    {
+//                        while(i < lines.size() && !lines.get(i).contains("ssd:")) { i++; }
+//                    }
+//                }
+//                else if(line.contains("ssd:"))
+//                {
+//                    if(config.getNodeGroups().contains("ioHddSsdNodes"))
+//                    {
+//                        newLines.add(line);
+//                        for(j = i+1; j < lines.size(); j++)
+//                        {
+//                            line = lines.get(j);
+//                            if(line.contains("flavor:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "flavor", config.getIoHddSsdNodes().get("flavor")));
+//                            }
+//                            else if(line.contains("image:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "image", config.getImageDefault()));
+//                            }
+//                            else if(line.contains("num_vms:"))
+//                            {
+//                                newLines.add(Utils.updateYamlFileLine(line, "num_vms", config.getIoHddSsdNodes().get("numNodes")));
+//                            }
+//                            else if(line.contains("name: datavol"))
+//                            {
+//                                newLines.add(line);
+//                                line = lines.get(++j);
+//                                newLines.add(Utils.updateYamlFileLine(line, "size", config.getIoHddSsdNodes().get("hddVolumeSize")));
+//                                break;
+//                            }
+//                            else
+//                            {
+//                                newLines.add(line);
+//                            }
+//                        }
+//                    }
+//                    else
+//                    {
+//                        break loop;
+//                    }
+//                    i = ++j;
+//                }
+//                else
+//                {
+//                    newLines.add(line);
+//                    i++;
+//                }
+//            }
+//            Files.write(newFile.toPath(), newLines, Charset.defaultCharset());
+//            System.out.println("'cluster_vars.yaml' generated:");
+//            BufferedReader br = new BufferedReader(new FileReader(newFile));
+//            while ((line = br.readLine()) != null)
+//            {
+//                System.out.println(line);
+//            }
+//        }
+//        catch (IOException e)
+//        {
+//            e.printStackTrace();
+//        }
+//    }
 
     static void updateToolComponentsOnBastion(JSch ssh, Configuration config, Server bastion, File tempFolder, File logsFolder)
     {
         System.out.println("Start updating tool components on Bastion...");
-        TarArchiver aTar = new TarArchiver();
-        String commands;
-        commands =
-            "rm arc.tar;" +
-                "rm -r " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleScript")) + ";" +
-                "rm -r temp;" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("clusterTestScript")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("thisJar")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("config")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVarsTemplate")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScript")) + ";" +
-                "rm " + Utils.getFileNameFromPath(config.getXternFiles().get("sparkSetupScriptInit")) + ";";
-        Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
+        TarArchiver aTar = new TarArchiver();;
         File arc = new File(tempFolder + "/arc.tar");
         DefaultFileSet fs = new DefaultFileSet();
+        File arcTemp = new File(tempFolder + "/arc");
+        File tempFile;
+        String commands;
+
+        commands =
+                "rm -f arc.tar;" +
+                "rm -r -f temp;" +
+                "rm -r -f " + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")) + ";";
+        for(String s : config.getXternFiles().values())
+        {
+            commands += "rm -r -f " + Utils.getFileNameFromPath(s) + ";";
+        }
+        Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         if(arc.exists())
         {
             arc.delete();
         }
-        fs.setDirectory(new File("."));
-        fs.setExcludes(new String[]{
-                tempFolder.getName() + "/*", tempFolder.getName(),
-                logsFolder.getName() + "/*", logsFolder.getName(),
-                "trash/*", "trash"
-        });
-        fs.setIncludingEmptyDirectories(true);
-        aTar.addFileSet(fs);
+        if(arcTemp.exists())
+        {
+            try
+            {
+                FileUtils.cleanDirectory(arcTemp);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+        arcTemp.mkdir();
         try
         {
-            aTar.addFile(new File(tempFolder + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars"))),
-                    Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars")));
+            for (String s : config.getXternFiles().values())
+            {
+                tempFile = new File(Utils.getFileNameFromPath(s));
+                if(tempFile.exists())
+                {
+                    if(tempFile.isDirectory())
+                    {
+                        FileUtils.copyDirectory(tempFile, new File(arcTemp + "/" + tempFile.getName()));
+                    }
+                    else
+                    {
+                        Files.copy(Paths.get(Utils.getFileNameFromPath(s)), Paths.get(arcTemp + "/" + Utils.getFileNameFromPath(s)),
+                                StandardCopyOption.REPLACE_EXISTING);
+                    }
+
+                }
+            }
+            Files.copy(Paths.get(tempFolder.getPath() + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars"))),
+                    Paths.get(arcTemp + "/" + Utils.getFileNameFromPath(config.getXternFiles().get("ansibleClusterVars"))),
+                    StandardCopyOption.REPLACE_EXISTING);
         }
-        catch (ArchiverException e) { } ;
+        catch (IOException e) { }
+        fs.setDirectory(arcTemp);
+        aTar.addFileSet(fs);
         aTar.setDestFile(arc);
         try
         {
@@ -820,6 +866,14 @@ class ClientProcedures
         commands = "tar -xf arc.tar --overwrite;";
         Utils.sshExecutor(ssh, config.getUserName(), Utils.getServerPublicIp(bastion, config.getNetworkName()), commands);
         System.out.println("Tool components are updated on Bastion.");
+        try
+        {
+            FileUtils.deleteDirectory(arcTemp);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     static void bastionClusterProvisionExecute(JSch ssh, Configuration config, Server bastion, String authCommands)
@@ -887,7 +941,7 @@ class ClientProcedures
                     "If it is a mistake, check the name in config.yml and rerun the tool.");
             return;
         }
-        vol = volumeApi.create(Integer.parseInt(config.getMaster().get("nfsSwMainVolumeSize")),
+        vol = volumeApi.create(config.getSwVolumeSize(),
                 CreateVolumeOptions.Builder.name(Utils.getFileNameFromPath(config.getNfsSwMainVolumeMount())).availabilityZone(config.getBastionAvailZone()));
         config.setAndUpdateSwDiskID(vol.getId());
         while(volumeApi.get(vol.getId()) == null)

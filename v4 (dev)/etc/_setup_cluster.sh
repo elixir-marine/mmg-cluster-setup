@@ -44,12 +44,13 @@ for name in "${WORKER_HOSTS[@]}"; do
 done
 cat $SPARK_HOME/conf/slaves
 
->| $SPARK_HOME/conf/spark-env.sh
->| $SPARK_HOME/conf/spark-defaults.conf
+#>| $SPARK_HOME/conf/spark-defaults.conf
 #echo "spark.memory.fraction" "0.9" >> $SPARK_HOME/conf/spark-defaults.conf
-echo "spark.deploy.defaultCores" "$(($CORES_PER_SLAVE * $NUM_SLAVES))" >> $SPARK_HOME/conf/spark-defaults.conf
-echo "export SPARK_WORKER_INSTANCES=$EXECUTORS_PER_SLAVE" >> $SPARK_HOME/conf/spark-env.sh
-echo "export SPARK_WORKER_MEMORY=$(($RAM_PER_EXECUTOR))g" >> $SPARK_HOME/conf/spark-env.sh
+echo "spark.deploy.defaultCores" "$(($CORES_PER_SLAVE * $NUM_SLAVES))" > $SPARK_HOME/conf/spark-defaults.conf
+echo -e "
+export SPARK_WORKER_INSTANCES=$EXECUTORS_PER_SLAVE
+export SPARK_WORKER_MEMORY=$(($RAM_PER_EXECUTOR))g
+" > $SPARK_HOME/conf/spark-env.sh
 
 . start-all.sh
 sudo chmod 777 -R $SPARK_FILES_DIR/*

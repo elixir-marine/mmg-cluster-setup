@@ -34,8 +34,6 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.net.URLDecoder;
-import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -84,7 +82,10 @@ public class MainClass implements Closeable
     private JSch ssh;
     private String sshFolder = System.getProperty("user.home") + "/.ssh";
 
-    private String osAuthOnBastionCommands;
+    private String osAuth;
+    private String osAuthV20;
+    private String osAuthV20new;
+    private String osAuthV3;
 
     private Stopwatch stopwatch;
 
@@ -141,13 +142,44 @@ public class MainClass implements Closeable
         this.userName = userName;
         this.password = password;
 
-        osAuthOnBastionCommands =
+        osAuthV20 =
                 "export OS_AUTH_URL=" + config.getOsAuthName() + ";" +
+                        /*"export OS_TENANT_ID=713abfec117a40a5bc65a42f7bc31a2d;" + */
                 "export OS_TENANT_NAME=" + config.getProjectName() + ";" +
                 "export OS_PROJECT_NAME=" + config.getProjectName() + ";" +
                 "export OS_USERNAME=" + userName + ";" +
                 "export OS_PASSWORD=" + password + ";" +
-                "export OS_REGION_NAME=" + config.getRegionName() + ";";
+                "export OS_REGION_NAME=" + config.getRegionName() + ";" + 
+                "if [ -z \"$OS_REGION_NAME\" ]; then unset OS_REGION_NAME; fi;";
+        osAuthV20new =
+                "export OS_AUTH_URL=https://pouta.csc.fi:5001/v3" /*+ config.getOsAuthName()*/ + ";" +
+                        "export OS_TENANT_ID=713abfec117a40a5bc65a42f7bc31a2d;" + 
+                "export OS_TENANT_NAME=" + config.getProjectName() + ";" +
+                "unset OS_PROJECT_ID;" +
+                "unset OS_PROJECT_NAME;" +
+                "unset OS_USER_DOMAIN_NAME;" + 
+                "unset OS_INTERFACE;" + 
+                "export OS_USERNAME=" + userName + ";" +
+                "export OS_PASSWORD=" + password + ";" +
+                "export OS_REGION_NAME=" + config.getRegionName() + ";" +
+                "if [ -z \"$OS_REGION_NAME\" ]; then unset OS_REGION_NAME; fi;" + 
+                "export OS_ENDPOINT_TYPE=publicURL;" +
+                "export OS_IDENTITY_API_VERSION=2;";
+        osAuthV3 =
+                "export OS_AUTH_URL=https://pouta.csc.fi:5001/v3" /*+ config.getOsAuthName()*/ + ";" +
+                        "export OS_PROJECT_ID=713abfec117a40a5bc65a42f7bc31a2d;" + 
+                "export OS_PROJECT_NAME=" + config.getProjectName() + ";" +
+                "export OS_USER_DOMAIN_NAME=\"Default\";" +
+                "if [ -z \"$OS_USER_DOMAIN_NAME\" ]; then unset OS_USER_DOMAIN_NAME; fi;" + 
+                "unset OS_TENANT_ID;" +
+                "unset OS_TENANT_NAME;" + 
+                "export OS_USERNAME=" + userName + ";" +
+                "export OS_PASSWORD=" + password + ";" +
+                "export OS_REGION_NAME=" + config.getRegionName() + ";" +
+                "if [ -z \"$OS_REGION_NAME\" ]; then unset OS_REGION_NAME; fi;" + 
+                "export OS_INTERFACE=public;" +
+                "export OS_IDENTITY_API_VERSION=3;";
+        osAuth = osAuthV20;
 
         ssh = new JSch();
         if(idRsaKeyFileName != null)
@@ -382,13 +414,14 @@ public class MainClass implements Closeable
 //                "\nRemove:\n" +
                 "--------------------\n" +
                 "|'" + Commands.REMOVE_CLUSTER.getCommand() + "':\n|\t" +
-                        "Remove existing cluster and keep the OS environment for future use.\n" +
+                        "Remove existing cluster and keep the OS environment for future use. Add 'skip-disks' to save the worker sw-disks if they exist.\n" +
                 "|'" + Commands.REMOVE_ENV.getCommand() + "':\n|\t" +
                         "Remove bastion, OS setups, SW-disk; config.yml cleanup. Cluster VMs removal skipped. Add 'skip-disk' to save the sw-disk.\n" +
                 "|'" + Commands.REMOVE_ALL.getCommand() + "':\n|\t" +
                         "Remove cluster VMs, bastion, OS setups, SW-disk, cleanup everything. Add 'skip-disk' to save the sw-disk.\n" +
                 "|'" + Commands.REMOVE_CREATE_CLUSTER.getCommand() + "':\n|\t" +
-                        "Runs '" + Commands.REMOVE_CLUSTER.getCommand() + "' and then '" + Commands.CREATE_CLUSTER.getCommand() + "'.\n" +
+                        "Runs '" + Commands.REMOVE_CLUSTER.getCommand() + "' and then '" + Commands.CREATE_CLUSTER.getCommand() + "'." +
+                        "Add 'skip-disks' to save the worker sw-disks if they exist.\n" +
 //                "\nAdmin IPs:\n" +
                 "--------------------\n" +
                 "|'" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X'; '" + Commands.ADMIN_ADD.getCommand() + " X.X.X.X, X.X.X.X, ...'; '" +
@@ -547,19 +580,21 @@ public class MainClass implements Closeable
                         mainClass.printStream.println("OPERATION CANCELED.\n\n");
                     }
                 }
-                else if((cmd[0].equalsIgnoreCase(Commands.CREATE_CLUSTER.getCommand()) ||
-                        cmd[0].equalsIgnoreCase(Commands.REMOVE_CREATE_CLUSTER.getCommand())) &&
-                        cmd.length == 1)
+                else if((cmd[0].equalsIgnoreCase(Commands.CREATE_CLUSTER.getCommand()) &&
+                        ((cmd.length == 1) || (cmd.length == 2 && cmd[1].equals("skip-check")))) ||
+                        (cmd[0].equalsIgnoreCase(Commands.REMOVE_CREATE_CLUSTER.getCommand()) &&
+                            ((cmd.length == 1) || (cmd.length == 2 && cmd[1].equals("skip-disks")))))
                 {
                     mainClass.stopwatch.start();
                     if(cmd[0].equalsIgnoreCase(Commands.REMOVE_CREATE_CLUSTER.getCommand()))
                     {
-                        mainClass.removeCluster();
+                        mainClass.removeCluster(cmd.length == 2);
                     }
 //                    mainClass.hardwareStats = HardwareStats.loadHardwareStatsStatic(config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi);
-                    if(mainClass.hardwareStats.canCreate(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi,
+                    if(cmd.length == 2 || mainClass.hardwareStats.canCreate(System.out, config, mainClass.novaApi, mainClass.tenant, mainClass.cinderApi,
                             mainClass.neutronApi, Commands.CREATE_CLUSTER.getCommand()))
                     {
+                        config = Configuration.loadConfig();
                         mainClass.createCluster(out);
                     }
                     else
@@ -584,10 +619,11 @@ public class MainClass implements Closeable
                         mainClass.printStream.println("OPERATION CANCELED.\n\n");
                     }
                 }
-                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_CLUSTER.getCommand()) && cmd.length == 1)
+                else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_CLUSTER.getCommand()) &&
+                        ((cmd.length == 1) || (cmd.length == 2 && cmd[1].equals("skip-disks"))))
                 {
                     mainClass.stopwatch.start();
-                    mainClass.removeCluster();
+                    mainClass.removeCluster(cmd.length == 2);
                     mainClass.printStream.println("Execution time: " + mainClass.stopwatch.stopGetResultReset() + "\n");
                 }
                 else if(cmd[0].equalsIgnoreCase(Commands.REMOVE_ALL.getCommand()) &&
@@ -777,9 +813,9 @@ public class MainClass implements Closeable
 //        System.out.println();
         ClientProcedures.updateToolComponentsOnBastion(ssh, config, bastion, tempFolderFile, logsFolderFile);
         System.out.println();
-        ClientProcedures.bastionClusterProvisionExecute(ssh, config, bastion, osAuthOnBastionCommands);
+        ClientProcedures.bastionClusterProvisionExecute(ssh, config, bastion, osAuth);
         System.out.println();
-        ClientProcedures.bastionClusterConfigurationExecute(ssh, config, bastion, osAuthOnBastionCommands);
+        ClientProcedures.bastionClusterConfigurationExecute(ssh, config, bastion, osAuth);
         System.out.println();
         ClientProcedures.openAdminAccess(config, securityGroupApi);
         System.out.println();
@@ -853,11 +889,11 @@ public class MainClass implements Closeable
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
         {
-            System.out.println("Bastion not found!\n");
+            System.out.println("Bastion not found!");
         }
         else if(getMasterReference(config.getClusterName()) == null)
         {
-            System.out.println("Cluster not found!\n");
+            System.out.println("Cluster not found!");
         }
         else
         {
@@ -873,6 +909,7 @@ public class MainClass implements Closeable
                 this.runBastionRoutine(Commands.SW_STOP.getCommand());
             }
         }
+        System.out.println();
     }
 
     private void updateSW()
@@ -895,7 +932,11 @@ public class MainClass implements Closeable
         System.out.println();
         ClientProcedures.attachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
         System.out.println();
+        ClientProcedures.mountSwDisk(ssh, config, bastion, volumeAttachmentApi);
+        System.out.println();
         ClientProcedures.runSwDiskPreparation(ssh, config, bastion, true);
+        System.out.println();
+        ClientProcedures.unmountSwDisk(ssh, config, bastion);
         System.out.println();
         ClientProcedures.detachSwDisk(config, bastion, volumeApi, volumeAttachmentApi);
         Utils.printTimestampedMessage(System.out, "\n", "SW-UPDATE: FINISHED.", "\n");
@@ -908,7 +949,7 @@ public class MainClass implements Closeable
     private void removeAll(boolean skipDisk)
     {
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ALL: STARTED.", "\n");
-        this.removeCluster();
+        this.removeCluster(false);
         this.removeEnv(skipDisk);
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ALL: FINISHED.", "\n");
     }
@@ -929,7 +970,7 @@ public class MainClass implements Closeable
         Utils.printTimestampedMessage(System.out, "\n", "REMOVE-ENV: FINISHED.", "\n");
     }
 
-    private void removeCluster()
+    private void removeCluster(boolean skipSwDisks)
     {
         if((bastion == null && !this.initBastionReference()) ||
                 Utils.getServerPublicIp(bastion, config.getNetworkName()) == null)
@@ -938,13 +979,13 @@ public class MainClass implements Closeable
         }
         else
         {
-            ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, true);
+            ClientProcedures.prepareToolComponents(config, tempFolderFile.getAbsolutePath(), flavorApi, false);
             Utils.printTimestampedMessage(System.out, "\n", "REMOVE-CLUSTER: STARTED.", "\n");
             ClientProcedures.updateToolComponentsOnBastion(ssh, config, bastion, tempFolderFile, logsFolderFile);
             System.out.println();
             stopSW(false);
             System.out.println();
-            ClientProceduresRemoval.deleteCluster(ssh, /*serverGroupApi, */config, bastion, osAuthOnBastionCommands);
+            ClientProceduresRemoval.deleteCluster(ssh, /*serverGroupApi,*/ config, bastion, osAuth, skipSwDisks);
             Utils.printTimestampedMessage(System.out, "\n", "REMOVE-CLUSTER: FINISHED.", "\n");
         }
     }
@@ -1374,10 +1415,10 @@ public class MainClass implements Closeable
                         mainClass.logsFolderFile);
             else if(cmd[0].equals("-cc.e"))
                 ClientProcedures.bastionClusterProvisionExecute(mainClass.ssh, config,
-                        mainClass.bastion, mainClass.osAuthOnBastionCommands);
+                        mainClass.bastion, mainClass.osAuth);
             else if(cmd[0].equals("-cc.f"))
                 ClientProcedures.bastionClusterConfigurationExecute(mainClass.ssh, config,
-                        mainClass.bastion, mainClass.osAuthOnBastionCommands);
+                        mainClass.bastion, mainClass.osAuth);
             else if(cmd[0].equals("-cc.g"))
                 ClientProcedures.openAdminAccess(config, mainClass.securityGroupApi);
             else if(cmd[0].equals("-cc.h"))
@@ -1393,7 +1434,10 @@ public class MainClass implements Closeable
             mainClass.initBastionReference();
             if(cmd[0].equals("-r.a"))
                 ClientProceduresRemoval.deleteCluster(mainClass.ssh, /*serverGroupApi, */config,
-                        mainClass.bastion, mainClass.osAuthOnBastionCommands);
+                        mainClass.bastion, mainClass.osAuth, false);
+            else if(cmd[0].equals("-r.aa"))
+                ClientProceduresRemoval.deleteCluster(mainClass.ssh, /*serverGroupApi, */config,
+                        mainClass.bastion, mainClass.osAuth, true);
             else if(cmd[0].equals("-r.c"))
                 ClientProceduresRemoval.removeSwCaches(mainClass.ssh, config, mainClass.volumeApi, mainClass.volumeAttachmentApi,
                         mainClass.bastion, false);
@@ -1405,7 +1449,7 @@ public class MainClass implements Closeable
         }
         else if(cmd[0].equals("-auth") && cmd.length == 1)
         {
-            out.println("\n" + mainClass.osAuthOnBastionCommands + "\n");
+            out.println("\n" + mainClass.osAuth + "\n");
         }
         else if(cmd[0].equals("-echo"))
         {

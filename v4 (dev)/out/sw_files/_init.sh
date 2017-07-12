@@ -11,5 +11,5 @@ SW_EXECUTABLE="workflow-assembly-0.1-SNAPSHOT.jar"
 
 SPARK_JOB_TAG="csc-AAA"
 
-ARTIFACTS_FILES_EXEC="https://artifacts.sfb.uit.no/jenkins/newpan_tools/40/workflow-assembly-0.1-SNAPSHOT.jar"
-ARTIFACTS_FILES_DEPS_ARC="https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/13/metapipe-dependencies.tar.gz"
+ARTIFACTS_FILES_EXEC="https://artifacts.sfb.uit.no/jenkins/newpan_tools/67/workflow-assembly-0.1-SNAPSHOT.jar"
+ARTIFACTS_FILES_DEPS_ARC="https://artifacts.sfb.uit.no/jenkins/newpan_tools_dependencies/20/metapipe-dependencies.tar.gz"

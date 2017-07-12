@@ -15,6 +15,6 @@
       shell: ssh -o PasswordAuthentication=no -q {{ ansible_ssh_user }}@{{ ansible_ssh_host }} 'echo success'
       register: result
       until: result.stdout.find('success') != -1
-      retries: 30
-      delay: 5
+      retries: 50
+      delay: 2
       delegate_to: 127.0.0.1
