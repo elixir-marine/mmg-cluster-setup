@@ -31,7 +31,7 @@ master:
   flavor: hpc-gen1.16core
   nfsSwTmpVolumeSize: 300
 
-# Choose (leave uncommented) exactly 1 of the node groups, and comment the unused one.
+# Choose (leave uncommented) exactly 1 of the node groups, and comment the unused one. 
 nodeGroups:
   - regularHddNodes
 #  - ioHddSsdNodes
