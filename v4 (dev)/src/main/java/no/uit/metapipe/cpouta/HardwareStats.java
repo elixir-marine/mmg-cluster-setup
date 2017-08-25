@@ -213,12 +213,15 @@ public class HardwareStats
 //            hardwareStats.volumeSnapStorageUsed += hardwareStats.volumeStorageUsed;
             hardwareStats.floatingIpUsed = novaApi.getFloatingIPApi(config.getRegionName()).get().list().size();
             hardwareStats.securityGroupsUsed = novaApi.getSecurityGroupApi(config.getRegionName()).get().list().size();
-            for(SecurityGroup x : novaApi.getSecurityGroupApi(config.getRegionName()).get().list())
-            {
-                hardwareStats.securityGroupRulesUsed += x.getRules().size();
-            }
             hardwareStats.keyPairsUsed = novaApi.getKeyPairApi(config.getRegionName()).get().list().size();
             hardwareStats.serverGroupsUsed = -1;
+            for(SecurityGroup x : novaApi.getSecurityGroupApi(config.getRegionName()).get().list())
+            {
+                if(x != null && x.getRules() != null)
+                {
+                    hardwareStats.securityGroupRulesUsed += x.getRules().size();
+                }
+            }
         }
         catch(Exception e)
         {

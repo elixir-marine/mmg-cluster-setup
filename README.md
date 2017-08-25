@@ -4,7 +4,7 @@
   
 Command-line tool for setting up processing software (META-pipe) on OpenStack (cPouta, pouta.csc.fi). Runs complex procedures with 1 or few commands.  
 The tool was tested on (K)Ubuntu 12.04/14.04/16.04.  
-Current META-pipe version used by the tool: v40 (executable) / v13 (dependencies).
+Current META-pipe version used by the tool: v67 (executable) / v20 (dependencies).
   
 |  
   
