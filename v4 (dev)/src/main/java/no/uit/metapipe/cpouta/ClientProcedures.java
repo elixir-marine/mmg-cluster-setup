@@ -280,13 +280,10 @@ class ClientProcedures
                 "source /usr/bin/virtualenvwrapper.sh;" +
                 "mkvirtualenv --system-site-packages ansible-2.3;" +
                 "pip install --upgrade pip;" +
-                "pip install setuptools;" +
-                "pip install --upgrade setuptools;" +
-                //"pip install 'ansible<2.3';" +
-                "pip install git+git://github.com/ansible/ansible.git@stable-2.3;" +
-                "pip install shade dnspython funcsigs functools32;" +
-                "pip install python-openstackclient;" +
-                "pip install python-novaclient;";
+                "pip install setuptools; pip install --upgrade setuptools;" +
+                "pip install 'ansible==2.3.1.0';" +
+                "pip install 'shade==1.21.0' dnspython funcsigs functools32;" +
+                "pip install python-openstackclient python-novaclient;";
         Utils.sshExecutor(ssh, config.getUserName(), bastionPublicIp, commands);
         System.out.println("Ansible is installed on Bastion.");
     }
