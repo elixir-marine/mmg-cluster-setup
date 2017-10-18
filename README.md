@@ -1,5 +1,3 @@
-# mmg-cluster-setup  
-
-# THE REPOSITORY IS BEING MOVED TO:  
-# https://gitlab.com/uit-sfb/MarineMetagenomicPortal  
+# The repository is being moved to:
+## https://gitlab.com/uit-sfb/MarineMetagenomicPortal  
 
